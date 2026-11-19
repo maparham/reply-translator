@@ -54,16 +54,59 @@ project directory (`~/translator`), compose project (`translator`), volume (`tra
 ## Backups
 
 `translator-backup` writes a gzipped, age-encrypted copy of `/data/translator.db` (taken with SQLite's backup
-API) to stdout; the box holds only the public key. Manual setup on the box:
+API) to stdout. The box holds only the public key; the caller can't choose the recipient.
+
+One-time setup:
+
+1. On your Mac make the age key pair and keep `translator-age.key` in your password manager (`brew install age`):
+   ```sh
+   age-keygen -o translator-age.key      # prints the public key (age1...)
+   ```
+2. Install age on the box: `sudo dnf install -y age` (Amazon Linux; if the package isn't available, download the
+   `age-vX.Y.Z-linux-amd64.tar.gz` release from https://github.com/FiloSottile/age/releases, extract it, and
+   `sudo install -m 755 age/age /usr/local/bin/age`). Check with `age --version`.
+3. Put the public key and the script on the box:
+   ```sh
+   echo 'age1...public key...' | sudo tee /usr/local/etc/translator-backup.age.pub
+   sudo install -o root -g root -m 755 ~/translator/deploy/lightsail/translator-backup /usr/local/bin/
+   ```
+4. Make a dedicated SSH key on your Mac (`ssh-keygen -t ed25519 -N '' -f ~/.ssh/translator-backup`) and append this
+   line to `~/.ssh/authorized_keys` on the box, with the contents of `translator-backup.pub` at the end:
+   ```
+   command="/usr/local/bin/translator-backup",no-port-forwarding,no-pty,no-agent-forwarding,no-X11-forwarding ssh-ed25519 AAAA... translator-backup
+   ```
+   That key can run only the backup script.
+
+Take a copy (from anywhere with the backup key):
 
 ```sh
-sudo install -o root -g root -m 755 ~/translator/deploy/lightsail/translator-backup /usr/local/bin/
-# age must be installed (see claude-gateway's install-backup-key.sh; the box already has it if that was run)
-# on your Mac:   age-keygen -o translator-age.key   (keep it in the password manager)
-echo 'age1...public key...' | sudo tee /usr/local/etc/translator-backup.age.pub
+ssh -i ~/.ssh/translator-backup ec2-user@<server-ip> > translator-$(date +%F).age
 ```
 
-Take a copy from anywhere that can SSH in: `ssh ec2-user@<server-ip> /usr/local/bin/translator-backup > t.db.gz.age`
-(or add a restricted `command="/usr/local/bin/translator-backup",restrict <key>` line to `authorized_keys` for an
-automated job). Restore: `age -d -i translator-age.key t.db.gz.age | gunzip > translator.db`, then copy it into
-the `translator_data` volume as `/data/translator.db` with the container stopped.
+## Restore
+
+The image runs as uid 10001 (`useradd --uid 10001 translator` in the Dockerfile), so the restored file must be
+owned by it. On your Mac, with the age private key:
+
+```sh
+age -d -i translator-age.key translator-2026-11-19.age | gunzip > translator.db
+python3 -c 'import sqlite3; print(sqlite3.connect("translator.db").execute("PRAGMA integrity_check").fetchone())'
+scp translator.db ec2-user@<server-ip>:translator-restore.db
+```
+
+On the box:
+
+```sh
+cd ~/translator/deploy/lightsail
+sudo docker compose down                      # stops the container; the volume is kept
+TAG=$(sed -n 's/^TRANSLATOR_TAG=//p' .env)
+sudo docker run --rm -i --user 10001 -v translator_data:/data "translator:${TAG:-latest}" \
+  sh -c 'rm -f /data/translator.db /data/translator.db-wal /data/translator.db-shm && cat > /data/translator.db' \
+  < ~/translator-restore.db
+rm ~/translator-restore.db
+sudo docker compose up -d --no-build
+curl -fsS http://127.0.0.1:18490/health
+```
+
+The restored database's provider keys are encrypted with the `APP_SECRET_KEY` in effect when they were saved, so
+`translator.env` must still hold that same key.

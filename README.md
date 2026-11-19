@@ -18,8 +18,12 @@ export CLERK_PUBLISHABLE_KEY=pk_test_...
 export CLERK_SECRET_KEY=sk_test_...
 export ADMIN_EMAILS=you@example.com
 export TRANSLATOR_DB=./translator.db        # default is /data/translator.db
-uv run python -m translator                 # http://127.0.0.1:18490
+uv run python -m translator                 # open http://localhost:18490
 ```
+
+Use `localhost` consistently: every non-GET `/api/*` request must carry an `Origin` header equal to the origin of
+`APP_URL`, so opening the app as `http://127.0.0.1:18490` while `APP_URL` says `localhost` gets 403 "Bad origin".
+Change `APP_URL` if you use another host or port.
 
 `TRANSLATOR_HOST` (default `127.0.0.1`) and `TRANSLATOR_PORT` (default `18490`) change the listener.
 
