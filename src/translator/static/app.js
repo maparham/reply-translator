@@ -273,13 +273,21 @@ async function deleteAll() {
   S.histId = null;
   await renderHistory();
 }
-const IMPORT_BATCH = 2; // worst-case items (6 fields x 8000 multibyte chars) must fit the server's 256 KB body cap
+const IMPORT_BATCH_BYTES = 200000; // headroom under the server's 256 KB body cap; a lone max-size item (~96 KB) fits
+const jsonBytes = (items) => new TextEncoder().encode(JSON.stringify({ items })).length;
 async function importLocal() {
   const items = localHistory();
+  const batches = [];
+  let batch = [];
+  for (const item of items) {
+    if (batch.length && jsonBytes([...batch, item]) > IMPORT_BATCH_BYTES) { batches.push(batch); batch = []; }
+    batch.push(item);
+  }
+  if (batch.length) batches.push(batch);
   try {
     let imported = 0;
-    for (let i = 0; i < items.length; i += IMPORT_BATCH) {
-      const r = await rawApi("POST", "/api/history/import", { items: items.slice(i, i + IMPORT_BATCH) });
+    for (const b of batches) {
+      const r = await rawApi("POST", "/api/history/import", { items: b });
       imported += r.imported || 0;
     }
     store.del("rt.history");

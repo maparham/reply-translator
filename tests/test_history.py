@@ -114,12 +114,13 @@ def _max_item():
             "output": {"received_gist": big, "message": big, "back_translation": big}}
 
 
-IMPORT_BATCH = 2  # must equal IMPORT_BATCH in static/app.js (3 max-size items exceed 256 KB; 25 did too)
+IMPORT_BATCH_BYTES = 200000  # must equal IMPORT_BATCH_BYTES in static/app.js
 
 
 def test_max_size_import_batch_fits_body_limit(user_client):
     import json
-    items = [_max_item() for _ in range(IMPORT_BATCH)]
+    items = [_max_item(), _max_item()]  # two max-size items: the most that fit one byte-based batch
     raw = json.dumps({"items": items}, ensure_ascii=False).encode()  # raw UTF-8, as browsers send
+    assert 150_000 < len(raw) <= IMPORT_BATCH_BYTES
     r = user_client.post("/api/history/import", content=raw, headers={"Content-Type": "application/json"})
-    assert r.status_code == 200 and r.json() == {"imported": IMPORT_BATCH}
+    assert r.status_code == 200 and r.json() == {"imported": 2}
