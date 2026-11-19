@@ -1,12 +1,20 @@
 """Anthropic / OpenAI adapters over raw httpx. Never logs bodies or keys."""
 import json
 import logging
+import os
 from dataclasses import dataclass
 
 import httpx
 
 log = logging.getLogger("translator")
 TIMEOUT = 60.0
+_DEFAULT_BASE = {"anthropic": "https://api.anthropic.com", "openai": "https://api.openai.com"}
+
+
+def _base(provider: str) -> str:
+    """API origin; ANTHROPIC_BASE_URL / OPENAI_BASE_URL override it (e.g. a compatible gateway)."""
+    url = os.environ.get(f"{provider.upper()}_BASE_URL", "").strip()
+    return (url or _DEFAULT_BASE[provider]).rstrip("/")
 
 
 @dataclass
@@ -70,20 +78,23 @@ async def generate(provider: str, api_key: str, model: str, system: str, user: s
 
 
 async def _anthropic(api_key, model, system, user, schema, http) -> Generation:
-    body = {"model": model, "max_tokens": 2048, "system": system,
+    # Structured outputs: current models reject forced tool_choice, so the JSON comes back as a text block.
+    body = {"model": model, "max_tokens": 16000, "system": system,
             "messages": [{"role": "user", "content": user}],
-            "tools": [{"name": "submit", "description": "Return the result", "input_schema": schema}],
-            "tool_choice": {"type": "tool", "name": "submit"}}
+            "output_config": {"format": {"type": "json_schema", "schema": schema}}}
     headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01"}
-    data = await _request("anthropic", http, "POST", "https://api.anthropic.com/v1/messages", headers, body)
+    data = await _request("anthropic", http, "POST", f"{_base('anthropic')}/v1/messages", headers, body)
     if data.get("stop_reason") in ("max_tokens", "refusal"):
         _fail("anthropic", f"stopped: {data['stop_reason']}")
     content = data.get("content")
     if not isinstance(content, list):
         _fail("anthropic", "missing content")
     for block in content:
-        if isinstance(block, dict) and block.get("type") == "tool_use" and "input" in block:
-            return Generation(block["input"], _usage(data, "input_tokens", "output_tokens"))
+        if isinstance(block, dict) and block.get("type") == "text" and isinstance(block.get("text"), str):
+            try:
+                return Generation(json.loads(block["text"]), _usage(data, "input_tokens", "output_tokens"))
+            except ValueError as e:
+                _fail("anthropic", "invalid JSON output", exc=e)
     _fail("anthropic", "missing structured output")
 
 
@@ -93,7 +104,7 @@ async def _openai(api_key, model, system, user, schema, http) -> Generation:
             "response_format": {"type": "json_schema",
                                 "json_schema": {"name": "result", "strict": True, "schema": schema}}}
     headers = {"Authorization": f"Bearer {api_key}"}
-    data = await _request("openai", http, "POST", "https://api.openai.com/v1/chat/completions", headers, body)
+    data = await _request("openai", http, "POST", f"{_base('openai')}/v1/chat/completions", headers, body)
     choices = data.get("choices")
     msg = choices[0].get("message") if isinstance(choices, list) and choices and isinstance(choices[0], dict) else None
     if not isinstance(msg, dict):
@@ -113,10 +124,10 @@ async def _openai(api_key, model, system, user, schema, http) -> Generation:
 async def list_models(provider: str, api_key: str, http: httpx.AsyncClient) -> list[str]:
     _check_provider(provider)
     if provider == "anthropic":
-        url = "https://api.anthropic.com/v1/models?limit=1000"
+        url = f"{_base('anthropic')}/v1/models?limit=1000"
         headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01"}
     else:
-        url = "https://api.openai.com/v1/models"
+        url = f"{_base('openai')}/v1/models"
         headers = {"Authorization": f"Bearer {api_key}"}
     data = await _request(provider, http, "GET", url, headers)
     items = data.get("data")

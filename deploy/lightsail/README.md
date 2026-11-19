@@ -28,6 +28,8 @@ project directory (`~/translator`), compose project (`translator`), volume (`tra
    CLERK_PUBLISHABLE_KEY=pk_live_...
    CLERK_SECRET_KEY=sk_live_...
    ADMIN_EMAILS=you@example.com
+   # optional: send Claude requests through an Anthropic-compatible gateway instead of api.anthropic.com
+   # ANTHROPIC_BASE_URL=https://claude.rahkar.pro
    ```
    Generate the key with `python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'`
    (or `uv run python -c ...` in the repo) and keep it in your password manager: it encrypts the provider API keys

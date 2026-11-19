@@ -18,6 +18,7 @@ export CLERK_PUBLISHABLE_KEY=pk_test_...
 export CLERK_SECRET_KEY=sk_test_...
 export ADMIN_EMAILS=you@example.com
 export TRANSLATOR_DB=./translator.db        # default is /data/translator.db
+# optional: export ANTHROPIC_BASE_URL=https://claude.rahkar.pro   (or OPENAI_BASE_URL) to use a compatible gateway
 uv run python -m translator                 # open http://localhost:18490
 ```
 

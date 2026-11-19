@@ -17,14 +17,15 @@ async def test_anthropic_generate():
     def h(req):
         seen["body"] = json.loads(req.content)
         seen["key"] = req.headers["x-api-key"]
-        return httpx.Response(200, json={"content": [{"type": "tool_use", "name": "submit", "input": {"message": "Hallo"}}],
-                                         "usage": {"input_tokens": 10, "output_tokens": 5}})
+        return httpx.Response(200, json={"content": [{"type": "thinking", "thinking": "", "signature": "x"},
+                                                     {"type": "text", "text": '{"message": "Hallo"}'}],
+                                         "stop_reason": "end_turn", "usage": {"input_tokens": 10, "output_tokens": 5}})
     schema = {"type": "object"}
     async with client(h) as http:
         g = await providers.generate("anthropic", "k", "claude-sonnet-5-5", "S", "U", schema, http)
     assert g.data == {"message": "Hallo"} and g.usage == providers.Usage(10, 5)
-    assert seen["key"] == "k" and seen["body"]["tool_choice"] == {"type": "tool", "name": "submit"}
-    assert seen["body"]["tools"][0]["input_schema"] == {"type": "object"}
+    assert seen["key"] == "k" and "tool_choice" not in seen["body"] and "tools" not in seen["body"]
+    assert seen["body"]["output_config"] == {"format": {"type": "json_schema", "schema": {"type": "object"}}}
     assert schema == {"type": "object"}
 
 
@@ -51,8 +52,9 @@ async def test_openai_errors(resp):
             await providers.generate("openai", "k", "m", "S", "U", {}, http)
 
 
-async def test_anthropic_no_tool_use():
-    r = httpx.Response(200, json={"content": [{"type": "text", "text": "hi"}], "usage": {"input_tokens": 1, "output_tokens": 1}})
+@pytest.mark.parametrize("content", [[{"type": "text", "text": "not json"}], [{"type": "thinking", "thinking": ""}], []])
+async def test_anthropic_no_json_text(content):
+    r = httpx.Response(200, json={"content": content, "usage": {"input_tokens": 1, "output_tokens": 1}})
     async with client(lambda q: r) as http:
         with pytest.raises(providers.ProviderError):
             await providers.generate("anthropic", "k", "m", "S", "U", {}, http)
@@ -60,7 +62,7 @@ async def test_anthropic_no_tool_use():
 
 @pytest.mark.parametrize("reason", ["max_tokens", "refusal"])
 async def test_anthropic_bad_stop_reason(reason):
-    r = httpx.Response(200, json={"content": [{"type": "tool_use", "input": {"a": 1}}], "stop_reason": reason,
+    r = httpx.Response(200, json={"content": [{"type": "text", "text": '{"a": 1}'}], "stop_reason": reason,
                                   "usage": {"input_tokens": 1, "output_tokens": 1}})
     async with client(lambda q: r) as http:
         with pytest.raises(providers.ProviderError):
@@ -68,7 +70,7 @@ async def test_anthropic_bad_stop_reason(reason):
 
 
 async def test_missing_usage_defaults_to_zero():
-    r = httpx.Response(200, json={"content": [{"type": "tool_use", "input": {"a": 1}}]})
+    r = httpx.Response(200, json={"content": [{"type": "text", "text": '{"a": 1}'}]})
     async with client(lambda q: r) as http:
         g = await providers.generate("anthropic", "k", "m", "S", "U", {}, http)
     assert g.usage == providers.Usage(0, 0)
@@ -114,3 +116,33 @@ async def test_list_models_errors(resp):
     async with client(lambda q: resp) as http:
         with pytest.raises(providers.ProviderError):
             await providers.list_models("openai", "k", http)
+
+
+@pytest.mark.parametrize("provider,env,expected", [
+    ("anthropic", "ANTHROPIC_BASE_URL", "https://gw.example/v1/messages"),
+    ("openai", "OPENAI_BASE_URL", "https://gw.example/v1/chat/completions"),
+])
+async def test_base_url_override(monkeypatch, provider, env, expected):
+    monkeypatch.setenv(env, "https://gw.example/")
+    seen = {}
+
+    def h(req):
+        seen["url"] = str(req.url)
+        if provider == "anthropic":
+            return httpx.Response(200, json={"content": [{"type": "text", "text": "{}"}], "usage": {}})
+        return httpx.Response(200, json={"choices": [{"message": {"content": "{}"}}], "usage": {}})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(h)) as http:
+        await providers.generate(provider, "k", "m", "S", "U", {}, http)
+    assert seen["url"] == expected
+
+
+async def test_default_base_url(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_BASE_URL", raising=False)
+    seen = {}
+
+    def h(req):
+        seen["url"] = str(req.url)
+        return httpx.Response(200, json={"data": []})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(h)) as http:
+        await providers.list_models("anthropic", "k", http)
+    assert seen["url"] == "https://api.anthropic.com/v1/models?limit=1000"
