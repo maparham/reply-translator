@@ -23,4 +23,7 @@ for i in \$(seq 30); do
 done
 [ -n "\$up" ] || { echo "translator did not answer on http://127.0.0.1:18490/health within 30 s" >&2; exit 1; }
 curl -fsS http://127.0.0.1:18490/health && echo
+# Prune old translator images (newest 3 manual-* tags stay); claude-proxy images are never touched.
+sudo docker images translator --format '{{.Tag}}' | { grep '^manual-' || true; } | sort -r | tail -n +4 \\
+  | while read -r old; do sudo docker rmi "translator:\$old" >/dev/null 2>&1 || true; done
 REMOTE_SCRIPT

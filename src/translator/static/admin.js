@@ -272,7 +272,6 @@ async function start() {
   if (!S.user.is_admin) { showGate("Admins only"); return; }
   $("#gate").hidden = true; $("#signin").hidden = true;
   try {
-    // Sequential on purpose: the server shares one SQLite connection across worker threads.
     S.settings = await rawApi("GET", "/api/admin/settings");
     S.styles = await rawApi("GET", "/api/admin/styles");
     S.langs = (await rawApi("GET", "/api/admin/languages")).items;
@@ -291,6 +290,7 @@ function init() {
   $("#spend-save").addEventListener("click", saveSpending);
   $("#signin").addEventListener("click", () => { if (S.clerk) S.clerk.openSignIn(); else showError("Sign-in is still loading, try again in a moment."); });
   $("#signout").addEventListener("click", signOut);
-  start().then(() => { if (!S.user) setupClerk(); }).catch((e) => showError(e.message));
+  // Always set up Clerk (not only when signed out): signOut needs the Clerk object, and onSession skips the exchange when S.user is set.
+  start().then(setupClerk).catch((e) => showError(e.message));
 }
 init();

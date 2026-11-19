@@ -12,6 +12,5 @@ docs
 tests
 deploy
 README.md
-uv.lock
 Dockerfile
 .dockerignore

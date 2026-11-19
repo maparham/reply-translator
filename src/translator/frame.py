@@ -41,6 +41,11 @@ def _esc(value: str) -> str:
     return value.replace("<", "\uff1c").replace(">", "\uff1e")
 
 
+def _unesc(value: str) -> str:
+    """Undo _esc: the model may echo the fullwidth brackets it saw in the prompt."""
+    return value.replace("\uff1c", "<").replace("\uff1e", ">")
+
+
 class FrameError(Exception):
     pass
 
@@ -113,7 +118,7 @@ def parse_output(data: object, reply_mode: bool) -> Output:
         v = data.get(key)
         if not isinstance(v, str):
             raise FrameError(f"missing or non-string field: {key}")
-        values[key] = v.strip()
+        values[key] = _unesc(v).strip()
     if not values["message"]:
         raise FrameError("message is empty")
     if not values["back_translation"]:

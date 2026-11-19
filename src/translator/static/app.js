@@ -176,6 +176,7 @@ function showResult(r) {
   gist.replaceChildren();
   if (r.received_gist) { const b = document.createElement("b"); b.textContent = "They wrote: "; gist.append(b, r.received_gist); }
   $("#message").textContent = r.message;
+  $("#message").lang = ($("#lang").value || "de").split("-")[0];
   $("#back").textContent = `“${r.back_translation}”`;
   $("#whatsapp").href = "https://wa.me/?text=" + encodeURIComponent(r.message);
   $("#copy").textContent = "Copy";

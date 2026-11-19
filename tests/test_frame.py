@@ -90,3 +90,18 @@ def test_system_prompt_binding_rules():
 def test_roundtrip():
     o = frame.Output("g", "m", "b")
     assert frame.parse_output(o.to_dict(), True) == o
+
+
+def test_parse_output_unescapes_fullwidth_brackets():
+    out = frame.parse_output({"received_gist": "g ＜i＞", "message": "a ＜b＞ c",
+                              "back_translation": "＜x＞"}, reply_mode=True)
+    assert (out.received_gist, out.message, out.back_translation) == ("g <i>", "a <b> c", "<x>")
+
+
+def test_tweak_prompt_in_reply_mode_keeps_received():
+    prev = frame.Output("gist", "Hallo", "Hello")
+    _, user = frame.build_prompt("s", "de", "en", "x", received="Hi there", previous=prev, tweak="shorter")
+    assert "<received_message>" in user and "<change_request>" in user
+    assert frame.parse_output({"received_gist": "g", "message": "m", "back_translation": "b"}, reply_mode=True)
+    with pytest.raises(frame.FrameError):
+        frame.parse_output({"received_gist": "", "message": "m", "back_translation": "b"}, reply_mode=True)

@@ -1,3 +1,4 @@
+import pytest
 import json
 
 from translator.providers import ProviderError
@@ -146,3 +147,21 @@ def test_concurrent_requests_share_the_connection_safely(cfg):
     with ThreadPoolExecutor(20) as ex:
         results = list(ex.map(hit, range(20)))
     assert all(code == 200 for r in results for code in r)
+
+
+@pytest.fixture
+def admin_routes(app):
+    out = []
+    for r in app.routes:
+        if getattr(r, "path", "").startswith("/api/admin/"):
+            for m in r.methods - {"HEAD", "OPTIONS"}:
+                out.append((m, r.path.replace("{style_id}", "1")))
+    return out
+
+
+def test_every_admin_route_forbids_anon_and_non_admin(admin_routes, anon_client, user_client, client):
+    assert len(admin_routes) >= 10
+    for c in (client, anon_client, user_client):
+        for method, path in admin_routes:
+            r = c.request(method, path, json={})
+            assert r.status_code == 403, (method, path, r.status_code)

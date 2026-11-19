@@ -95,6 +95,63 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         return resp
 
 
+MAX_BODY_BYTES = 256 * 1024
+
+
+class BodyLimitMiddleware:
+    """Pure-ASGI request body cap: rejects by Content-Length, and counts bytes for chunked bodies."""
+
+    def __init__(self, app, limit: int = MAX_BODY_BYTES):
+        self.app, self.limit = app, limit
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        declared = dict(scope["headers"]).get(b"content-length")
+        if declared is not None:
+            try:
+                too_big = int(declared) > self.limit
+            except ValueError:
+                too_big = False
+            if too_big:
+                await self._reject(send)
+                return
+        seen = 0
+        over = False
+
+        async def counting_receive():
+            nonlocal seen, over
+            if over:
+                return {"type": "http.disconnect"}
+            msg = await receive()
+            if msg["type"] == "http.request":
+                seen += len(msg.get("body", b""))
+                if seen > self.limit:
+                    over = True
+                    return {"type": "http.disconnect"}
+            return msg
+
+        async def guarded_send(msg):
+            if not over:  # once over the limit, whatever the app says about the truncated body is dropped
+                await send(msg)
+
+        try:
+            await self.app(scope, counting_receive, guarded_send)
+        finally:
+            if over:
+                await self._reject(send)
+
+
+    @staticmethod
+    async def _reject(send):
+        payload = b'{"error":"Request too large"}'
+        await send({"type": "http.response.start", "status": 413, "headers": [
+            (b"content-type", b"application/json"), (b"content-length", str(len(payload)).encode()),
+            (b"connection", b"close")]})
+        await send({"type": "http.response.body", "body": payload})
+
+
 def _csp(fapi: str | None) -> str:
     host = f" https://{fapi}" if fapi else ""
     return (
@@ -129,6 +186,7 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
     app.state.cfg, app.state.conn, app.state.crypto = cfg, conn, crypto
     app.state.settings, app.state.http = settings, http
     app.state.generate, app.state.clerk = generate, clerk_verifier
+    app.add_middleware(BodyLimitMiddleware)
     app.add_middleware(SecurityMiddleware, csp=_csp(fapi), allowed_origin=_origin(cfg.app_url))
 
     @app.exception_handler(StarletteHTTPException)

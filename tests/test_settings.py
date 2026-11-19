@@ -32,3 +32,15 @@ def test_cap_eur_non_finite(settings):
         assert settings.cap_eur() is None
     settings.set("cap_eur", "5.5")
     assert settings.cap_eur() == 5.5
+
+
+def test_undecryptable_secret_is_treated_as_unset(settings, conn, caplog):
+    from cryptography.fernet import Fernet
+    from translator.crypto import Crypto
+    from translator.settings import Settings
+    settings.set_secret("openai_api_key", "sk-abcdef1234")
+    rotated = Settings(conn, Crypto(Fernet.generate_key().decode()))
+    with caplog.at_level("WARNING"):
+        assert rotated.get_secret("openai_api_key") is None
+        assert rotated.secret_hint("openai_api_key") is None
+    assert "openai_api_key" in caplog.text and "sk-abcdef1234" not in caplog.text

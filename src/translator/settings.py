@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import sqlite3
 
+from cryptography.fernet import InvalidToken
+
 from .crypto import Crypto
+
+log = logging.getLogger(__name__)
 
 
 class Settings:
@@ -28,7 +33,13 @@ class Settings:
 
     def get_secret(self, name: str) -> str | None:
         token = self.get(name)
-        return None if token is None else self._crypto.decrypt(token)
+        if token is None:
+            return None
+        try:
+            return self._crypto.decrypt(token)
+        except InvalidToken:
+            log.warning("cannot decrypt stored secret %r (APP_SECRET_KEY changed?); treating it as unset", name)
+            return None
 
     def set_secret(self, name: str, value: str | None) -> None:
         self.set(name, None if value is None else self._crypto.encrypt(value))
