@@ -25,7 +25,7 @@
     <button id="import-no" class="link" type="button">Not now</button>
   </p>
 
-  <form id="form" autocomplete="off">
+  <form id="form" method="post" autocomplete="off">
     <label for="received">Message you received <span class="opt">optional</span></label>
     <textarea id="received" rows="4" maxlength="8000" placeholder="Paste what they wrote to you"></textarea>
 
@@ -36,13 +36,13 @@
       <div class="field">
         <label for="style">Style</label>
         <select id="style"></select>
+        <p id="style-desc" class="hint"></p>
       </div>
       <div class="field">
         <label for="lang">To</label>
         <select id="lang"></select>
       </div>
     </div>
-    <p id="style-desc" class="hint"></p>
 
     <div class="field">
       <label for="mylang">My language</label>
@@ -52,7 +52,7 @@
     <label class="check"><input type="checkbox" id="nosave"> Don't save this one</label>
 
     <div id="turnstile" class="turnstile"></div>
-    <button id="generate" class="primary" type="submit">Generate</button>
+    <button id="generate" class="primary" type="submit" disabled>Generate</button>
   </form>
 
   <p id="error" class="error" role="alert" hidden></p>

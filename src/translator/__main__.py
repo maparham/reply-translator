@@ -1,3 +1,4 @@
+import logging
 import os
 
 import uvicorn
@@ -23,6 +24,8 @@ async def fake_generate(provider, api_key, model, system, user, schema, http) ->
 
 def build_app(cfg: Config):
     if os.environ.get("TRANSLATOR_FAKE_PROVIDER") == "1":
+        logging.getLogger("uvicorn.error").warning(
+            "TRANSLATOR_FAKE_PROVIDER=1: using a FAKE provider, no real model is called. Never use in production.")
         return create_app(cfg, generate=fake_generate)
     return create_app(cfg)
 

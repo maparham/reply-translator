@@ -22,3 +22,10 @@ def test_fake_provider_off_by_default(cfg, monkeypatch):
     assert build_app(cfg).state.generate.__name__ == "generate"
     monkeypatch.setenv("TRANSLATOR_FAKE_PROVIDER", "1")
     assert build_app(cfg).state.generate is fake_generate
+
+
+def test_fake_provider_warns_loudly(cfg, monkeypatch, caplog):
+    monkeypatch.setenv("TRANSLATOR_FAKE_PROVIDER", "1")
+    with caplog.at_level("WARNING", logger="uvicorn.error"):
+        build_app(cfg)
+    assert "FAKE provider" in caplog.text

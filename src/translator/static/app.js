@@ -1,7 +1,7 @@
 "use strict";
 const $ = (s) => document.querySelector(s);
 const S = { cfg: null, user: null, sessionOk: false, widget: null, waiters: [], busy: false,
-  last: null, histId: null, clerk: null, exchanging: false };
+  last: null, histId: null, fails: 0, clerk: null, exchanging: false };
 
 // ---------- storage ----------
 const store = {
@@ -10,7 +10,9 @@ const store = {
   del(key) { try { localStorage.removeItem(key); } catch { /* ignore */ } },
 };
 const MAX_LOCAL = 100;
-const localHistory = () => store.get("rt.history", []);
+const validItem = (i) => i && typeof i === "object" && typeof i.id === "string" && i.inputs && typeof i.inputs === "object"
+  && i.output && typeof i.output.message === "string" && typeof i.output.back_translation === "string";
+function localHistory() { const h = store.get("rt.history", []); return Array.isArray(h) ? h.filter(validItem) : []; }
 
 // ---------- api ----------
 async function rawApi(method, path, body) {
@@ -42,6 +44,8 @@ async function api(method, path, body) {
 // ---------- Turnstile ----------
 function waitForSession() {
   if (S.sessionOk || S.user) return Promise.resolve();
+  if (S.fails >= 2) return Promise.reject(new Error("Couldn't verify, reload the page"));
+  if (S.fails > 0) resetTurnstile();
   return new Promise((resolve, reject) => {
     S.waiters.push({ resolve, reject });
     setTimeout(() => {
@@ -55,10 +59,15 @@ async function onTurnstileToken(token) {
   try {
     await rawApi("POST", "/api/session", { turnstile_token: token });
     S.sessionOk = true;
+    S.fails = 0;
     S.waiters.splice(0).forEach((w) => w.resolve());
   } catch (e) {
-    S.waiters.splice(0).forEach((w) => w.reject(e));
-    resetTurnstile();
+    S.fails += 1;
+    const waiting = S.waiters.length > 0;
+    if (S.fails >= 2) {
+      S.waiters.splice(0).forEach((w) => w.reject(new Error("Couldn't verify, reload the page")));
+      showError("Couldn't verify, reload the page");
+    } else if (waiting) resetTurnstile(); // a request is waiting: try once more
   }
 }
 let turnstileLoading = null;
@@ -78,7 +87,6 @@ async function setupTurnstile() {
     await turnstileLoading;
     S.widget = window.turnstile.render("#turnstile", {
       sitekey: S.cfg.turnstile_site_key, appearance: "interaction-only", callback: onTurnstileToken,
-      "expired-callback": () => { S.sessionOk = false; resetTurnstile(); },
     });
   } catch (e) { showError("Could not load the verification check, reload the page."); }
 }
@@ -110,14 +118,16 @@ async function clerkExchange() {
     S.user = await rawApi("POST", "/api/login/clerk", { token });
     S.cfg.user = S.user;
     renderAccount();
-    const n = localHistory().length;
-    if (n) {
-      $("#import-text").textContent = `Move ${n} item${n === 1 ? "" : "s"} from this browser to your account?`;
-      $("#import-bar").hidden = false;
-    }
+    offerImport();
     await renderHistory();
   } catch (e) { showError(e.message); }
   finally { S.exchanging = false; }
+}
+function offerImport() {
+  const n = S.user ? localHistory().length : 0;
+  if (!n) return;
+  $("#import-text").textContent = `Move ${n} item${n === 1 ? "" : "s"} from this browser to your account?`;
+  $("#import-bar").hidden = false;
 }
 async function signOut() {
   try { await rawApi("POST", "/api/logout", {}); } catch { /* cookie may already be gone */ }
@@ -179,16 +189,17 @@ function snapshot() {
     text: $("#text").value, received: $("#received").value };
 }
 async function run(tweak, button) {
-  if (S.busy) return;
+  if (S.busy || !S.cfg) return;
   showError("");
   const inputs = tweak && S.last ? S.last.inputs : snapshot();
-  if (!tweak) { S.histId = null; savePrefs(); }
+  if (!tweak) savePrefs();
   const save = !$("#nosave").checked;
-  const body = { ...inputs, save, history_id: S.histId };
+  const body = { ...inputs, save, history_id: tweak ? S.histId : null };
   if (tweak) { body.tweak = tweak; body.previous = S.last.result; }
   setBusy(true, button);
   try {
     const res = await api("POST", tweak ? "/api/tweak" : "/api/generate", body);
+    if (!tweak) S.histId = null;
     S.last = { inputs, result: res.result, styleLabel: styleLabel(inputs.style_id) };
     showResult(res.result);
     if (save) {
@@ -216,14 +227,15 @@ function showResult(r) {
 }
 function isVisible(el) { const r = el.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; }
 async function copyText(text, button) {
+  let ok = true;
   try { await navigator.clipboard.writeText(text); }
   catch {
     const t = document.createElement("textarea"); t.value = text; document.body.append(t); t.select();
-    try { document.execCommand("copy"); } finally { t.remove(); }
+    try { ok = document.execCommand("copy"); } catch { ok = false; } finally { t.remove(); }
   }
   const old = button.dataset.label || button.textContent;
   button.dataset.label = old;
-  button.textContent = "Copied ✓";
+  button.textContent = ok ? "Copied ✓" : "Couldn't copy, select the text";
   setTimeout(() => { button.textContent = old; }, 1800);
 }
 
@@ -246,7 +258,11 @@ async function historyItems() {
   try { return await api("GET", "/api/history"); } catch (e) { showError(e.message); return []; }
 }
 async function renderHistory() {
-  const items = await historyItems();
+  try { await renderHistoryUnsafe(); }
+  catch (e) { console.warn("history failed", e); }
+}
+async function renderHistoryUnsafe() {
+  const items = (await historyItems()).filter(validItem);
   $("#history-count").textContent = items.length ? `(${items.length})` : "";
   $("#history-empty").hidden = items.length > 0;
   $("#history-anon").hidden = !!S.user;
@@ -323,13 +339,13 @@ async function refreshConfig() {
 
 // ---------- init ----------
 async function init() {
+  $("#form").addEventListener("submit", (e) => { e.preventDefault(); run(null, $("#generate")); });
   try { S.cfg = await rawApi("GET", "/api/config"); }
   catch (e) { showNotice("Could not load the app. Please reload."); return; }
   S.user = S.cfg.user;
   buildForm();
   renderAccount();
-  await renderHistory();
-  $("#form").addEventListener("submit", (e) => { e.preventDefault(); run(null, $("#generate")); });
+  offerImport();
   $("#style").addEventListener("change", () => { showStyleDesc(); savePrefs(); });
   $("#lang").addEventListener("change", savePrefs);
   $("#mylang").addEventListener("change", savePrefs);
@@ -347,5 +363,6 @@ async function init() {
   });
   setupTurnstile();
   setupClerk();
+  renderHistory();
 }
 init();
