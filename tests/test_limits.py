@@ -37,3 +37,14 @@ def test_max_size_generate_body_still_works(anon_client, fake_gen):
     prev = {"received_gist": s, "message": s, "back_translation": s}
     r = anon_client.post("/api/tweak", json=body(text=s, received=s, tweak="shorter", previous=prev))
     assert r.status_code == 200, r.text
+
+
+def test_chunked_abort_is_quiet_for_json_routes(client, caplog):
+    import logging
+    def chunks():
+        for _ in range(40):
+            yield b" " * (16 * 1024)
+    with caplog.at_level(logging.DEBUG):
+        r = client.post("/api/session", content=chunks(), headers={"Content-Type": "application/json"})
+    assert r.status_code == 413 and r.json() == {"error": "Request too large"}
+    assert not [x for x in caplog.records if x.levelno >= logging.ERROR]

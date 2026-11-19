@@ -273,10 +273,15 @@ async function deleteAll() {
   S.histId = null;
   await renderHistory();
 }
+const IMPORT_BATCH = 2; // worst-case items (6 fields x 8000 multibyte chars) must fit the server's 256 KB body cap
 async function importLocal() {
   const items = localHistory();
   try {
-    await rawApi("POST", "/api/history/import", { items });
+    let imported = 0;
+    for (let i = 0; i < items.length; i += IMPORT_BATCH) {
+      const r = await rawApi("POST", "/api/history/import", { items: items.slice(i, i + IMPORT_BATCH) });
+      imported += r.imported || 0;
+    }
     store.del("rt.history");
     $("#import-bar").hidden = true;
     await renderHistory();

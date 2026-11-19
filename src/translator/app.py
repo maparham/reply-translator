@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, StrictBool, StrictInt, StrictStr
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import ClientDisconnect
 
 from . import clerk as clerk_mod
 from . import db, frame, history, providers, sessions, styles, turnstile, usage
@@ -235,6 +236,8 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
     async def _json(request: Request) -> dict:
         try:
             data = await request.json()
+        except ClientDisconnect:  # body cap aborted the stream; BodyLimitMiddleware answers 413
+            raise HTTPException(413, "Request too large") from None
         except ValueError:
             raise HTTPException(400, "Invalid request") from None
         if not isinstance(data, dict):
