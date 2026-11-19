@@ -1,1 +1,81 @@
-<!doctype html><title>Reply Translator admin</title>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reply Translator admin</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="admin">
+<main class="wrap wide">
+  <header class="top">
+    <h1>Reply Translator admin</h1>
+    <div class="account">
+      <a class="link" href="/">App</a>
+      <span id="who" class="who" hidden></span>
+      <button id="signin" class="link" type="button" hidden>Sign in</button>
+      <button id="signout" class="link" type="button" hidden>Sign out</button>
+    </div>
+  </header>
+
+  <p id="error" class="error" role="alert" hidden></p>
+  <p id="flash" class="notice ok" role="status" hidden></p>
+  <p id="gate" class="notice" hidden></p>
+
+  <div id="panels" hidden>
+    <section class="panel" id="status-panel">
+      <h2>Status</h2>
+      <label class="check"><input type="checkbox" id="enabled"> App switched on</label>
+      <p id="open-state" class="notice"></p>
+    </section>
+
+    <section class="panel" id="keys-panel">
+      <h2>Keys</h2>
+      <form id="keys-form" autocomplete="off">
+        <div id="keys"></div>
+        <label for="site-key">Turnstile site key</label>
+        <input id="site-key" type="text" autocomplete="off" spellcheck="false">
+        <p class="hint">Empty fields are left unchanged. Keys are stored encrypted and never shown again.</p>
+        <button class="primary" type="submit">Save keys</button>
+      </form>
+    </section>
+
+    <section class="panel" id="styles-panel">
+      <h2>Styles</h2>
+      <ul id="styles" class="slist"></ul>
+      <button id="style-new" class="btn" type="button">Add style</button>
+      <div id="editor" class="editor" hidden></div>
+    </section>
+
+    <section class="panel" id="langs-panel">
+      <h2>Target languages</h2>
+      <div id="langs"></div>
+      <div class="bar">
+        <button id="lang-add" class="btn" type="button">Add language</button>
+        <button id="lang-save" class="primary" type="button">Save languages</button>
+      </div>
+    </section>
+
+    <section class="panel" id="spend-panel">
+      <h2>Spending</h2>
+      <p id="unpriced" class="error" hidden></p>
+      <label for="cap">Daily cap (EUR per day, empty = no cap)</label>
+      <input id="cap" type="number" min="0" step="any" inputmode="decimal">
+      <h3>Prices (EUR per 1M tokens)</h3>
+      <div id="prices"></div>
+      <div class="bar">
+        <button id="price-add" class="btn" type="button">Add model</button>
+        <button id="spend-save" class="primary" type="button">Save spending</button>
+      </div>
+      <h3>Usage, last 30 days</h3>
+      <p id="today" class="hint"></p>
+      <div class="tablewrap"><table id="usage-days"></table></div>
+      <h3>By style</h3>
+      <div class="tablewrap"><table id="usage-styles"></table></div>
+    </section>
+  </div>
+</main>
+<script src="/static/admin.js"></script>
+</body>
+</html>
