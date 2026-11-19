@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, StrictBool, StrictInt, StrictStr
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -20,6 +21,28 @@ from .crypto import Crypto
 from .settings import Settings
 
 STATIC = Path(__file__).parent / "static"
+MAX_CHARS = 8000
+
+
+class PreviousIn(BaseModel):
+    received_gist: StrictStr
+    message: StrictStr
+    back_translation: StrictStr
+
+
+class GenerateIn(BaseModel):
+    style_id: StrictInt
+    language_code: StrictStr
+    my_language: StrictStr
+    text: StrictStr
+    received: StrictStr | None = None
+    save: StrictBool = False
+    history_id: StrictStr | None = None
+
+
+class TweakIn(GenerateIn):
+    tweak: StrictStr
+    previous: PreviousIn
 
 
 def is_open(conn, settings: Settings) -> bool:
@@ -215,6 +238,64 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
         resp = JSONResponse({"ok": True})
         resp.delete_cookie(sessions.COOKIE, path="/")
         return resp
+
+    def require_open(_: dict = Depends(require_session)) -> dict:
+        if not is_open(conn, settings):
+            raise HTTPException(503, "Temporarily unavailable")
+        return _
+
+    def _maybe_save(session: dict, req, style_label: str, language_code: str, output: frame.Output) -> str | None:
+        """Task 8 fills this in: persist to history for signed-in users when req.save is set."""
+        return None
+
+    app.state.maybe_save = _maybe_save
+
+    async def _run(session: dict, req: GenerateIn, tweak: str | None = None,
+                   previous: PreviousIn | None = None) -> dict:
+        fields = [req.text, req.received or ""]
+        if previous is not None:
+            fields += [previous.message, previous.back_translation, previous.received_gist]
+        if any(len(f) > MAX_CHARS for f in fields):
+            raise HTTPException(400, "Text is too long (max 8000 characters)")
+        if previous is None and not req.text.strip():
+            raise HTTPException(400, "Please write what you want to say")
+        if req.my_language not in frame.MY_LANGUAGES:
+            raise HTTPException(400, "Unknown language")
+        language = next((l["name"] for l in styles.list_languages(conn) if l["code"] == req.language_code), None)
+        if language is None:
+            raise HTTPException(400, "Unknown language")
+        style = styles.get_style(conn, req.style_id)
+        if style is None or not style.active:
+            raise HTTPException(400, "This style is not available")
+        api_key = settings.get_secret(f"{style.provider}_api_key")
+        if not api_key:
+            raise HTTPException(400, "This style is not configured yet")
+        if tweak is not None and tweak not in frame.TWEAKS:
+            raise HTTPException(400, "Unknown change")
+        reply_mode = bool((req.received or "").strip())
+        system, user = frame.build_prompt(
+            style.prompt, language, req.my_language, req.text, req.received,
+            frame.Output(**previous.model_dump()) if previous else None, tweak)
+        try:
+            gen = await app.state.generate(style.provider, api_key, style.model, system, user,
+                                           frame.OUTPUT_SCHEMA, http)
+        except providers.ProviderError:
+            raise HTTPException(502, "Couldn't generate, try again") from None
+        usage.record(conn, settings, style.id, style.model, gen.usage)
+        try:
+            output = frame.parse_output(gen.data, reply_mode)
+        except frame.FrameError:
+            raise HTTPException(502, "Couldn't generate, try again") from None
+        history_id = _maybe_save(session, req, style.label, req.language_code, output)
+        return {"result": output.to_dict(), "history_id": history_id}
+
+    @app.post("/api/generate")
+    async def generate_endpoint(req: GenerateIn, session: dict = Depends(require_open)):
+        return await _run(session, req)
+
+    @app.post("/api/tweak")
+    async def tweak_endpoint(req: TweakIn, session: dict = Depends(require_open)):
+        return await _run(session, req, req.tweak, req.previous)
 
     @app.get("/api/admin/settings")
     def admin_settings_stub(_: dict = Depends(require_admin)):
