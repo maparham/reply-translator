@@ -27,31 +27,32 @@ _SEED_STYLES = [
         "Official",
         "Formal and polite, for authorities, landlords, schools and doctors",
         """Write in a formal, courteous register suitable for authorities, landlords, schools, doctors and other official contacts in Austria.
-Address the other person with "Sie" throughout, and use complete, well-structured sentences.
-Be polite and clear; state the request or answer directly without sounding cold or curt.
-Open with a proper greeting (e.g. "Sehr geehrte Damen und Herren" or "Sehr geehrte Frau/Herr ...") and close with "Mit freundlichen Grüßen".
-Use Austrian German vocabulary and conventions, e.g. "Jänner" instead of "Januar", "heuer", "Ordination" for a doctor's practice.
-Avoid slang, contractions and emojis.""",
+Address the other person with "Sie" throughout, in complete, well-structured sentences. Be polite and clear; state the request or answer directly without sounding cold.
+Greet with the recipient's exact name and title when the received message gives one (e.g. "Sehr geehrte Frau Mag. Huber"); otherwise use "Sehr geehrte Damen und Herren". Close with "Mit freundlichen Grüßen".
+Use standard Austrian vocabulary where it fits, e.g. "Jänner" instead of "Januar", "Termin" for appointments; use "Ordination" only when writing to a doctor's practice.
+No slang, no colloquial contractions (not "gibt's", "hab'", "ham"), no emojis.
+Never invent names, dates, numbers or facts that are not in the input, and never output placeholders of any kind (no bracketed names, no ellipses standing in for missing text, no slash forms for titles).""",
     ),
     (
         "Friendly",
         "Warm and casual, like a chat message",
         """Write in a warm, natural tone, like a friendly WhatsApp message in Austria.
-Use "du" by default, but switch to "Sie" if the received message uses "Sie".
-Keep sentences short and conversational; light colloquial phrasing is fine, but nothing sloppy or rude.
-Start with a casual greeting such as "Hallo" or "Servus" (or "Grüß Gott" for someone older or less familiar) and close with "Liebe Grüße".
-Use Austrian German vocabulary, e.g. "Jänner", "heuer", "ur" as an occasional intensifier, "passt" for agreement.
-At most one emoji, and only where it truly fits.""",
+Use "du" by default, but use "Sie" if the received message uses "Sie". When using "Sie", greet with "Guten Tag" or "Grüß Gott", never "Servus" or "Hallo"; keep "Servus" for people the user clearly knows well.
+Keep sentences short and conversational; light colloquial phrasing is fine, but nothing sloppy or rude. Close with "Liebe Grüße".
+The greeting is optional when the received message is clearly part of a short back-and-forth chat; then just answer.
+Use Austrian vocabulary where it fits, e.g. "Jänner" instead of "Januar", "passt" for agreement.
+At most one emoji, and only where it truly fits.
+Never invent names, dates, numbers or facts that are not in the input, and never output placeholders of any kind (no bracketed names, no ellipses standing in for missing text).""",
     ),
     (
         "Neutral",
         "Plain and polite, neither stiff nor chatty",
         """Write in a plain, polite and matter-of-fact tone.
-Address the other person with "Sie".
-Add no extra warmth and no stiff formality: no flowery phrases, no small talk.
-Keep it short: a brief greeting such as "Guten Tag", the essential content, and a short closing such as "Freundliche Grüße".
-Use Austrian German vocabulary where relevant, e.g. "Jänner" instead of "Januar".
-No emojis.""",
+Address the other person with "Sie". Add no extra warmth and no stiff formality: no flowery phrases, no small talk.
+Keep it short: a brief greeting such as "Guten Tag" or another time-appropriate greeting, the essential content, and a short closing such as "Freundliche Grüße".
+Use Austrian vocabulary where relevant, e.g. "Jänner" instead of "Januar".
+No emojis.
+Never invent names, dates, numbers or facts that are not in the input, and never output placeholders of any kind (no bracketed names, no ellipses standing in for missing text).""",
     ),
 ]
 
@@ -69,13 +70,21 @@ def _validate(fields: dict) -> None:
 
 
 def seed(conn: sqlite3.Connection) -> None:
-    if conn.execute("SELECT COUNT(*) FROM styles").fetchone()[0]:
-        return
-    if conn.execute("SELECT COUNT(*) FROM languages").fetchone()[0]:
-        return
-    for label, description, prompt in _SEED_STYLES:
-        create_style(conn, label, description, prompt, "anthropic", _SEED_MODEL)
-    set_languages(conn, [{"code": "de-AT", "name": "German (Austria)"}])
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        if (
+            conn.execute("SELECT COUNT(*) FROM styles").fetchone()[0]
+            or conn.execute("SELECT COUNT(*) FROM languages").fetchone()[0]
+        ):
+            conn.execute("ROLLBACK")
+            return
+        for label, description, prompt in _SEED_STYLES:
+            _insert_style(conn, label, description, prompt, "anthropic", _SEED_MODEL, True)
+        _replace_languages(conn, [{"code": "de-AT", "name": "German (Austria)"}])
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
 
 
 def list_styles(conn: sqlite3.Connection, active_only: bool) -> list[Style]:
@@ -93,6 +102,10 @@ def get_style(conn: sqlite3.Connection, id: int) -> Style | None:
 
 def create_style(conn, label, description, prompt, provider, model, active=True) -> Style:
     _validate({"label": label, "prompt": prompt, "provider": provider, "model": model})
+    return _insert_style(conn, label, description, prompt, provider, model, active)
+
+
+def _insert_style(conn, label, description, prompt, provider, model, active) -> Style:
     pos = conn.execute("SELECT COALESCE(MAX(position), -1) + 1 FROM styles").fetchone()[0]
     cur = conn.execute(
         "INSERT INTO styles (label, description, prompt, provider, model, active, position) VALUES (?,?,?,?,?,?,?)",
@@ -109,6 +122,8 @@ def update_style(conn, id: int, **fields) -> Style | None:
     if get_style(conn, id) is None:
         return None
     if fields:
+        if "description" in fields and fields["description"] is None:
+            fields["description"] = ""
         if "active" in fields:
             fields["active"] = int(bool(fields["active"]))
         for k in ("label", "model"):
@@ -138,12 +153,24 @@ def list_languages(conn: sqlite3.Connection) -> list[dict]:
     return [{"code": r["code"], "name": r["name"]} for r in conn.execute("SELECT code, name FROM languages ORDER BY position, code")]
 
 
+def _replace_languages(conn: sqlite3.Connection, items: list[dict]) -> None:
+    seen = set()
+    for it in items:
+        code, name = it.get("code"), it.get("name")
+        if not (isinstance(code, str) and code.strip() and isinstance(name, str) and name.strip()):
+            raise ValueError("language code and name must not be empty")
+        if code in seen:
+            raise ValueError(f"duplicate language code: {code}")
+        seen.add(code)
+    conn.execute("DELETE FROM languages")
+    for pos, it in enumerate(items):
+        conn.execute("INSERT INTO languages (code, name, position) VALUES (?,?,?)", (it["code"].strip(), it["name"].strip(), pos))
+
+
 def set_languages(conn: sqlite3.Connection, items: list[dict]) -> None:
     conn.execute("BEGIN")
     try:
-        conn.execute("DELETE FROM languages")
-        for pos, it in enumerate(items):
-            conn.execute("INSERT INTO languages (code, name, position) VALUES (?,?,?)", (it["code"], it["name"], pos))
+        _replace_languages(conn, items)
         conn.execute("COMMIT")
     except Exception:
         conn.execute("ROLLBACK")

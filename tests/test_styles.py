@@ -68,3 +68,36 @@ def test_set_languages(conn):
     styles.seed(conn)
     styles.set_languages(conn, [{"code": "en", "name": "English"}, {"code": "de-AT", "name": "German (Austria)"}])
     assert [l["code"] for l in styles.list_languages(conn)] == ["en", "de-AT"]
+
+
+def test_seed_prompts_clean(conn):
+    styles.seed(conn)
+    for s in styles.list_styles(conn, False):
+        assert s.prompt.strip()
+        assert "..." not in s.prompt and "[" not in s.prompt and "/" not in s.prompt
+
+
+def test_seed_atomic(conn, monkeypatch):
+    monkeypatch.setattr(styles, "_replace_languages", lambda *a: (_ for _ in ()).throw(RuntimeError("boom")))
+    with pytest.raises(RuntimeError):
+        styles.seed(conn)
+    assert styles.list_styles(conn, False) == []
+
+
+@pytest.mark.parametrize("items", [
+    [{"code": "", "name": "X"}], [{"code": "x", "name": " "}], [{"name": "X"}],
+    [{"code": "a", "name": "A"}, {"code": "a", "name": "B"}],
+])
+def test_set_languages_invalid(conn, items):
+    styles.set_languages(conn, [{"code": "en", "name": "English"}])
+    with pytest.raises(ValueError):
+        styles.set_languages(conn, items)
+    assert styles.list_languages(conn) == [{"code": "en", "name": "English"}]
+
+
+def test_update_empty_and_none_description(conn):
+    s = styles.create_style(conn, "A", "d", "p", "openai", "m")
+    for k in ("prompt", "model"):
+        with pytest.raises(ValueError):
+            styles.update_style(conn, s.id, **{k: ""})
+    assert styles.update_style(conn, s.id, description=None).description == ""
