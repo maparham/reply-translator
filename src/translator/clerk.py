@@ -64,7 +64,7 @@ class Verifier:
             r.raise_for_status()
             try:
                 self._keys = {k["kid"]: _public_key(k) for k in r.json().get("keys", []) if k.get("kty") == "RSA" and "kid" in k}
-            except (ValueError, KeyError, TypeError, AttributeError):
+            except (ValueError, KeyError, TypeError, AttributeError):  # includes non-JSON and non-dict bodies
                 raise ClerkError("Clerk's key list is unreadable") from None
             self._fetched = time.time()
         if kid not in self._keys:
@@ -107,9 +107,14 @@ class Verifier:
         r = await self.http.get(f"{BACKEND_API}/users/{user_id}", headers={"Authorization": f"Bearer {self.secret}"}, timeout=10)
         if r.status_code != 200:
             raise ClerkError(f"Clerk answered {r.status_code} for the user")
-        u = r.json()
+        try:
+            u = r.json()
+            if not isinstance(u, dict):
+                raise ValueError
+        except ValueError:
+            raise ClerkError("Clerk's user answer is unreadable") from None
         primary = u.get("primary_email_address_id")
         for e in u.get("email_addresses") or []:
-            if e.get("id") == primary and (e.get("verification") or {}).get("status") == "verified":
+            if isinstance(e, dict) and e.get("id") == primary and (e.get("verification") or {}).get("status") == "verified" and e.get("email_address"):
                 return str(e["email_address"]).strip().lower()
         raise ClerkError("the account has no verified email address")

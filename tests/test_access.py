@@ -34,9 +34,9 @@ def test_bad_clerk_token(client):
 
 
 def test_admin_route_forbidden_for_anon_and_users(client):
-    client.post("/api/session", json={"turnstile_token": "t"})
+    assert client.post("/api/session", json={"turnstile_token": "t"}).status_code == 200
     assert client.get("/api/admin/settings").status_code == 403
-    client.post("/api/login/clerk", json={"token": "user"})
+    assert client.post("/api/login/clerk", json={"token": "user"}).status_code == 200
     assert client.get("/api/admin/settings").status_code == 403
 
 
@@ -79,3 +79,62 @@ def test_expired_session_cookie(crypto):
     tok = sessions.issue(crypto, "anon", now=0)
     assert sessions.read(crypto, tok, now=13 * 3600) is None
     assert sessions.read(crypto, tok, now=3600) == {"kind": "anon", "uid": None}
+
+
+import httpx
+import pytest
+
+from translator import clerk as clerk_mod
+
+
+def test_router_errors_are_json_error(client):
+    r = client.get("/api/nope")
+    assert r.status_code == 404 and r.json() == {"error": "Not Found"}
+    r = client.get("/api/session")
+    assert r.status_code == 405 and r.json() == {"error": "Method Not Allowed"}
+
+
+@pytest.mark.parametrize("origin", ["null", "https://testserver", "http://testserver:80", "http://testserver.evil"])
+def test_origin_variants_rejected(app, origin):
+    c = TestClient(app, headers={"Origin": origin})
+    assert c.post("/api/logout").status_code == 403
+
+
+def test_require_user_rejects_anon(app, anon_client, user_client):
+    from fastapi import Depends
+
+    app.add_api_route("/api/_who", lambda s=Depends(app.state.require_user): s, methods=["GET"])
+    r = anon_client.get("/api/_who")
+    assert r.status_code == 401 and r.json() == {"error": "Please sign in"}
+    assert user_client.get("/api/_who").json()["kind"] == "user"
+
+
+def _verifier(handler):
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    return clerk_mod.Verifier("pk_test_" + "Y2xlcmsueC50ZXN0JA==", "sk", "http://testserver", http)
+
+
+@pytest.mark.parametrize("content", [b"not json", b"[1]"])
+async def test_clerk_email_unreadable_body_is_clerk_error(content):
+    v = _verifier(lambda req: httpx.Response(200, content=content))
+    with pytest.raises(clerk_mod.ClerkError):
+        await v.email("user_x")
+
+
+@pytest.mark.parametrize("content", [b"not json", b"[1]"])
+async def test_clerk_jwks_unreadable_body_is_clerk_error(content):
+    v = _verifier(lambda req: httpx.Response(200, content=content))
+    with pytest.raises(clerk_mod.ClerkError):
+        await v._key("k1")
+
+
+def test_login_maps_clerk_error_to_401(app, client_factory):
+    class Bad:
+        async def verify(self, token):
+            raise clerk_mod.ClerkError("x")
+
+    from translator.app import create_app
+
+    a = create_app(app.state.cfg, clerk_verifier=Bad())
+    c = TestClient(a, headers={"Origin": "http://testserver"})
+    assert c.post("/api/login/clerk", json={"token": "x"}).status_code == 401

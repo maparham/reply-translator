@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -9,6 +10,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from . import clerk as clerk_mod
@@ -74,20 +76,27 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
     styles.seed(conn)
     crypto = Crypto(cfg.secret_key)
     settings = Settings(conn, crypto)
+    owns_http = http is None
     http = http or httpx.AsyncClient(timeout=60.0)
     if clerk_verifier is None and cfg.clerk_publishable_key and cfg.clerk_secret_key:
         clerk_verifier = clerk_mod.Verifier(cfg.clerk_publishable_key, cfg.clerk_secret_key, cfg.app_url, http)
     fapi = clerk_mod.frontend_api(cfg.clerk_publishable_key) if cfg.clerk_publishable_key else None
     secure = cfg.app_url.lower().startswith("https")
 
-    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+    @asynccontextmanager
+    async def lifespan(_app):
+        yield
+        if owns_http:
+            await http.aclose()
+
+    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.cfg, app.state.conn, app.state.crypto = cfg, conn, crypto
     app.state.settings, app.state.http = settings, http
     app.state.generate, app.state.clerk = generate, clerk_verifier
     app.add_middleware(SecurityMiddleware, csp=_csp(fapi), allowed_origin=_origin(cfg.app_url))
 
-    @app.exception_handler(HTTPException)
-    async def _http_exc(request, exc: HTTPException):
+    @app.exception_handler(StarletteHTTPException)
+    async def _http_exc(request, exc: StarletteHTTPException):
         return _err(exc.status_code, str(exc.detail))
 
     @app.exception_handler(RequestValidationError)
@@ -101,6 +110,12 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
         s = current_session(request)
         if s is None:
             raise HTTPException(401, "Session expired, reload the page")
+        return s
+
+    def require_user(request: Request) -> dict:
+        s = current_session(request)
+        if s is None or s["kind"] != "user" or not s["uid"]:
+            raise HTTPException(401, "Please sign in")
         return s
 
     def _user_email(s: dict | None) -> str | None:
@@ -117,7 +132,7 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
         return s
 
     app.state.current_session, app.state.require_session = current_session, require_session
-    app.state.require_admin = require_admin
+    app.state.require_admin, app.state.require_user = require_admin, require_user
 
     def set_cookie(resp: JSONResponse, kind: str, uid: str | None = None) -> None:
         resp.set_cookie(sessions.COOKIE, sessions.issue(crypto, kind, uid), max_age=sessions.TTL[kind],
