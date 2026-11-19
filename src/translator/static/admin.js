@@ -22,17 +22,6 @@ function el(tag, props = {}, ...kids) {
 }
 const button = (text, onclick, cls = "link", extra = {}) => el("button", { type: "button", class: cls, text, on: { click: onclick }, ...extra });
 const field = (label, input) => el("div", { class: "field" }, el("label", { for: input.id, text: label }), input);
-async function rawApi(method, path, body) {
-  const res = await fetch(path, {
-    method, credentials: "same-origin",
-    headers: body === undefined ? {} : { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  let data = null;
-  try { data = await res.json(); } catch { /* empty or non-JSON body */ }
-  if (!res.ok) { const e = new Error(data?.error || "Something went wrong, try again"); e.status = res.status; throw e; }
-  return data;
-}
 let flashTimer;
 function showError(msg) { const e = $("#error"); e.textContent = msg; e.hidden = !msg; if (msg) e.scrollIntoView({ block: "nearest" }); }
 function flash(msg) {
@@ -51,47 +40,17 @@ function showGate(msg, withSignIn) {
 }
 
 // ---------- Clerk ----------
-function loadScript(src, attrs = {}) {
-  return new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = src; s.async = true;
-    Object.entries(attrs).forEach(([k, v]) => s.setAttribute(k, v));
-    s.onload = resolve; s.onerror = () => reject(new Error(`Could not load ${src}`));
-    document.head.appendChild(s);
-  });
-}
-function frontendApi(pk) {
-  try { return atob(pk.replace(/^pk_(test|live)_/, "")).replace(/\$$/, ""); } catch { return null; }
-}
 async function setupClerk() {
-  const pk = S.cfg.clerk_publishable_key;
-  const fapi = pk && frontendApi(pk);
-  if (!fapi) return;
-  try {
-    const npm = `https://${fapi}/npm`;
-    await loadScript(`${npm}/@clerk/ui@1/dist/ui.browser.js`, { crossorigin: "anonymous" });
-    await loadScript(`${npm}/@clerk/clerk-js@6/dist/clerk.browser.js`, { crossorigin: "anonymous", "data-clerk-publishable-key": pk });
-    await window.Clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } });
-    S.clerk = window.Clerk;
-    S.clerk.addListener(({ session }) => { if (session && !S.user) clerkExchange(); });
-    if (S.clerk.session && !S.user) clerkExchange();
-  } catch (e) { console.warn(e); }
+  S.clerk = await loadClerk(S.cfg.clerk_publishable_key, (clerk) => { S.clerk = clerk; if (!S.user) clerkExchange(); });
 }
 async function clerkExchange() {
   if (S.exchanging) return;
   S.exchanging = true;
-  try {
-    const token = await S.clerk.session.getToken();
-    await rawApi("POST", "/api/login/clerk", { token });
-    await start();
-  } catch (e) { showError(e.message); }
+  try { await clerkExchangeToken(S.clerk); await start(); }
+  catch (e) { showError(e.message); }
   finally { S.exchanging = false; }
 }
-async function signOut() {
-  try { await rawApi("POST", "/api/logout", {}); } catch { /* cookie may already be gone */ }
-  try { await S.clerk?.signOut(); } catch (e) { console.warn(e); }
-  location.reload();
-}
+const signOut = () => signOutAndReload(S.clerk);
 
 // ---------- status + keys ----------
 function renderStatus() {
@@ -138,11 +97,14 @@ const modelCache = {};
 async function modelsFor(provider) {
   if (!(provider in modelCache)) {
     try { modelCache[provider] = (await rawApi("GET", `/api/admin/models?provider=${encodeURIComponent(provider)}`)).models; }
-    catch { modelCache[provider] = []; }
+    catch { return []; } // don't cache failures: the key may be set later
   }
   return modelCache[provider];
 }
-async function loadStyles() { S.styles = await rawApi("GET", "/api/admin/styles"); renderStyles(); }
+async function loadStyles() {
+  const r = await guard(() => rawApi("GET", "/api/admin/styles"));
+  if (r && r !== true) { S.styles = r; renderStyles(); }
+}
 function renderStyles() {
   $("#styles").replaceChildren(...S.styles.map((s, i) => {
     const meta = `${s.provider} · ${s.model}${s.active ? "" : " · inactive"}`;
@@ -164,7 +126,7 @@ async function move(i, d) {
 }
 async function setActive(s, active, box) {
   const r = await guard(() => rawApi("PUT", `/api/admin/styles/${s.id}`, { active }), active ? "Activated" : "Deactivated");
-  if (r && r !== true) { Object.assign(s, r); renderStyles(); if (S.editing === s.id) openEditor(s); } else box.checked = s.active;
+  if (r && r !== true) { Object.assign(s, r); renderStyles(); if (S.editing === s.id) { const e = $("#e-active"); if (e) e.checked = r.active; } } else box.checked = s.active;
 }
 async function deleteStyle(s) {
   if (!confirm(`Delete the style "${s.label}"? Old history items keep their label.`)) return;
@@ -192,7 +154,7 @@ async function openEditor(style) {
   const save = async () => {
     const body = { label: label.value, description: desc.value, prompt: prompt.value, provider: provider.value, model: model.value.trim(), active: active.checked };
     const r = await guard(() => isNew ? rawApi("POST", "/api/admin/styles", body) : rawApi("PUT", `/api/admin/styles/${s.id}`, body), "Style saved");
-    if (r && r !== true) { await loadStyles(); openEditor(S.styles.find((x) => x.id === r.id)); }
+    if (r && r !== true) { await loadStyles(); const fresh = S.styles.find((x) => x.id === r.id); if (fresh) openEditor(fresh); }
   };
   $("#editor").replaceChildren(
     el("h3", { text: isNew ? "New style" : `Edit: ${s.label}` }),

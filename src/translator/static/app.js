@@ -15,18 +15,6 @@ const validItem = (i) => i && typeof i === "object" && typeof i.id === "string" 
 function localHistory() { const h = store.get("rt.history", []); return Array.isArray(h) ? h.filter(validItem) : []; }
 
 // ---------- api ----------
-async function rawApi(method, path, body) {
-  const res = await fetch(path, {
-    method, credentials: "same-origin",
-    headers: body === undefined ? {} : { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  let data = null;
-  try { data = await res.json(); } catch { /* empty body */ }
-  if (!res.ok) { const e = new Error(data?.error || "Something went wrong, try again"); e.status = res.status; throw e; }
-  return data;
-}
-
 // Turnstile tokens are single use: a 401 means the session is gone, so get a fresh token and retry once.
 async function api(method, path, body) {
   if (!S.user && !S.sessionOk) await waitForSession();
@@ -71,15 +59,6 @@ async function onTurnstileToken(token) {
   }
 }
 let turnstileLoading = null;
-function loadScript(src, attrs = {}) {
-  return new Promise((resolve, reject) => {
-    const el = document.createElement("script");
-    el.src = src; el.async = true;
-    Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
-    el.onload = resolve; el.onerror = () => reject(new Error(`Could not load ${src}`));
-    document.head.appendChild(el);
-  });
-}
 async function setupTurnstile() {
   if (S.user || S.widget !== null || !S.cfg.turnstile_site_key) return;
   try {
@@ -92,30 +71,14 @@ async function setupTurnstile() {
 }
 
 // ---------- Clerk ----------
-function frontendApi(pk) {
-  try { return atob(pk.replace(/^pk_(test|live)_/, "")).replace(/\$$/, ""); } catch { return null; }
-}
 async function setupClerk() {
-  const pk = S.cfg.clerk_publishable_key;
-  const fapi = pk && frontendApi(pk);
-  if (!fapi) return;
-  try {
-    const npm = `https://${fapi}/npm`;
-    await loadScript(`${npm}/@clerk/ui@1/dist/ui.browser.js`, { crossorigin: "anonymous" });
-    await loadScript(`${npm}/@clerk/clerk-js@6/dist/clerk.browser.js`,
-      { crossorigin: "anonymous", "data-clerk-publishable-key": pk });
-    await window.Clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } });
-    S.clerk = window.Clerk;
-    S.clerk.addListener(({ session }) => { if (session && !S.user) clerkExchange(); });
-    if (S.clerk.session && !S.user) clerkExchange();
-  } catch (e) { console.warn(e); }
+  S.clerk = await loadClerk(S.cfg.clerk_publishable_key, (clerk) => { S.clerk = clerk; if (!S.user) clerkExchange(); });
 }
 async function clerkExchange() {
   if (S.exchanging) return;
   S.exchanging = true;
   try {
-    const token = await S.clerk.session.getToken();
-    S.user = await rawApi("POST", "/api/login/clerk", { token });
+    S.user = await clerkExchangeToken(S.clerk);
     S.cfg.user = S.user;
     renderAccount();
     offerImport();
@@ -129,11 +92,7 @@ function offerImport() {
   $("#import-text").textContent = `Move ${n} item${n === 1 ? "" : "s"} from this browser to your account?`;
   $("#import-bar").hidden = false;
 }
-async function signOut() {
-  try { await rawApi("POST", "/api/logout", {}); } catch { /* cookie may already be gone */ }
-  try { await S.clerk?.signOut(); } catch (e) { console.warn(e); }
-  location.reload();
-}
+const signOut = () => signOutAndReload(S.clerk);
 
 // ---------- form ----------
 const LOCALE = { en: "English", ar: "Arabic", fa: "Persian", ps: "Pashto", tr: "Turkish", ku: "Kurdish (Kurmanji)",

@@ -124,3 +124,25 @@ def test_try_errors(admin_client, fake_gen):
 
 def test_usage(admin_client):
     assert admin_client.get("/api/admin/usage").status_code == 200
+
+
+def test_concurrent_requests_share_the_connection_safely(cfg):
+    from concurrent.futures import ThreadPoolExecutor
+
+    from fastapi.testclient import TestClient
+
+    from translator import sessions
+    from translator.app import create_app
+
+    app = create_app(cfg)
+    app.state.conn.execute("INSERT INTO users(id,email,created_at) VALUES('a','admin@x.test','now')")
+    cookie = sessions.issue(app.state.crypto, "user", "a")
+
+    def hit(i):
+        with TestClient(app, headers={"Origin": "http://testserver"}, cookies={sessions.COOKIE: cookie}) as c:
+            paths = ["/api/admin/settings", "/api/config", "/api/admin/styles", "/api/admin/usage"]
+            return [c.get(p).status_code for p in paths]
+
+    with ThreadPoolExecutor(20) as ex:
+        results = list(ex.map(hit, range(20)))
+    assert all(code == 200 for r in results for code in r)
