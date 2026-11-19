@@ -1,0 +1,17 @@
+.git
+.venv
+.pytest_cache
+.playwright-mcp
+.superpowers
+__pycache__
+*.pyc
+*.db*
+.env
+*.env
+docs
+tests
+deploy
+README.md
+uv.lock
+Dockerfile
+.dockerignore

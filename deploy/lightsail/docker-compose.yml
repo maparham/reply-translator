@@ -1,0 +1,23 @@
+# Reply Translator on the shared Lightsail host, behind the existing claude-gateway Cloudflare tunnel.
+# Host networking so cloudflared reaches it on 127.0.0.1:18490. Separate from claude-gateway's project and volume.
+name: translator
+services:
+  translator:
+    build: ../..
+    image: translator:${TRANSLATOR_TAG:-latest}   # .env, written by update.sh
+    network_mode: host
+    restart: unless-stopped
+    mem_limit: 128m
+    env_file: translator.env         # APP_URL, APP_SECRET_KEY, CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY, ADMIN_EMAILS (chmod 600)
+    environment:
+      TRANSLATOR_HOST: 127.0.0.1
+      TRANSLATOR_PORT: "18490"
+    volumes:
+      - translator_data:/data
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+volumes:
+  translator_data:
+    external: true                   # created once (see README); compose never removes it
+    name: translator_data
