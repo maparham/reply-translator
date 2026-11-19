@@ -71,7 +71,8 @@ One-time setup:
    `age-vX.Y.Z-linux-amd64.tar.gz` release from https://github.com/FiloSottile/age/releases, extract it, and
    `sudo install -m 755 age/age /usr/local/bin/age`). Check with `age --version`.
 3. Put the public key and the script on the box (needs the first deploy, since the script comes from
-   `~/translator`; after any change to `translator-backup`, deploy and rerun the `install` line):
+   `~/translator`; after any change to `translator-backup`, deploy, then rerun
+   `sudo install -o root -g root -m 755 ~/translator/deploy/lightsail/translator-backup /usr/local/bin/`):
    ```sh
    echo 'age1...public key...' | sudo tee /usr/local/etc/translator-backup.age.pub
    sudo install -o root -g root -m 755 ~/translator/deploy/lightsail/translator-backup /usr/local/bin/
@@ -111,7 +112,7 @@ sudo docker run --rm -i --user 10001 -v translator_data:/data "translator:${TAG:
   < ~/translator-restore.db
 rm ~/translator-restore.db
 sudo docker compose up -d --no-build
-for i in $(seq 30); do curl -fsS --max-time 5 http://127.0.0.1:18490/health && break; sleep 1; done
+for i in $(seq 30); do curl -fsS --max-time 2 http://127.0.0.1:18490/health && break; sleep 1; done; curl -fsS --max-time 5 http://127.0.0.1:18490/health
 ```
 
 The restored database's provider keys are encrypted with the `APP_SECRET_KEY` in effect when they were saved, so
