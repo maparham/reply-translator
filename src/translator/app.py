@@ -205,6 +205,7 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
             "styles": [{"id": s.id, "label": s.label, "description": s.description}
                        for s in styles.list_styles(conn, active_only=True)],
             "languages": styles.list_languages(conn),
+            "my_languages": list(frame.MY_LANGUAGES),
             "tweaks": [{"id": k, "label": v[0]} for k, v in frame.TWEAKS.items()],
             "user": {"email": email, "is_admin": email in cfg.admin_emails} if email else None,
         }

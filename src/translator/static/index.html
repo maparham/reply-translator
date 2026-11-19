@@ -1,1 +1,85 @@
-<!doctype html><title>Reply Translator</title>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reply Translator</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<main class="wrap">
+  <header class="top">
+    <h1>Reply Translator</h1>
+    <div class="account">
+      <span id="who" class="who" hidden></span>
+      <button id="signin" class="link" type="button" hidden>Sign in</button>
+      <button id="signout" class="link" type="button" hidden>Sign out</button>
+    </div>
+  </header>
+
+  <p id="notice" class="notice" hidden></p>
+  <p id="import-bar" class="notice ok" hidden>
+    <span id="import-text"></span>
+    <button id="import-yes" class="link" type="button">Move</button>
+    <button id="import-no" class="link" type="button">Not now</button>
+  </p>
+
+  <form id="form" autocomplete="off">
+    <label for="received">Message you received <span class="opt">optional</span></label>
+    <textarea id="received" rows="4" maxlength="8000" placeholder="Paste what they wrote to you"></textarea>
+
+    <label for="text">What you want to say <span class="opt">any language</span></label>
+    <textarea id="text" rows="4" maxlength="8000" placeholder="e.g. say no, I can only do Tuesday" required></textarea>
+
+    <div class="row">
+      <div class="field">
+        <label for="style">Style</label>
+        <select id="style"></select>
+      </div>
+      <div class="field">
+        <label for="lang">To</label>
+        <select id="lang"></select>
+      </div>
+    </div>
+    <p id="style-desc" class="hint"></p>
+
+    <div class="field">
+      <label for="mylang">My language</label>
+      <select id="mylang"></select>
+    </div>
+
+    <label class="check"><input type="checkbox" id="nosave"> Don't save this one</label>
+
+    <div id="turnstile" class="turnstile"></div>
+    <button id="generate" class="primary" type="submit">Generate</button>
+  </form>
+
+  <p id="error" class="error" role="alert" hidden></p>
+
+  <section id="result" class="result" hidden aria-live="polite">
+    <p id="gist" class="gist" hidden></p>
+    <div id="message" class="message" lang="de"></div>
+    <div class="actions">
+      <button id="copy" class="primary" type="button">Copy</button>
+      <a id="whatsapp" class="btn" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+    </div>
+    <p class="means"><span class="means-label">Means</span> <span id="back"></span></p>
+    <div id="tweaks" class="tweaks"></div>
+  </section>
+
+  <section class="history">
+    <button id="history-toggle" class="history-toggle" type="button" aria-expanded="false">
+      <span id="history-caret">▸</span> History <span id="history-count" class="count"></span>
+    </button>
+    <div id="history-panel" hidden>
+      <p id="history-empty" class="hint" hidden>Nothing here yet.</p>
+      <p id="history-anon" class="hint" hidden>Saved in this browser only. Sign in to keep it across devices.</p>
+      <ul id="history-list" class="hlist"></ul>
+      <button id="history-clear" class="link danger" type="button" hidden>Delete all</button>
+    </div>
+  </section>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>
