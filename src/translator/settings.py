@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import sqlite3
 
 from .crypto import Crypto
@@ -44,9 +45,10 @@ class Settings:
         if raw is None or raw == "":
             return None
         try:
-            return float(raw)
+            value = float(raw)
         except ValueError:
             return None
+        return value if math.isfinite(value) else None
 
     def prices(self) -> dict[str, dict]:
         raw = self.get("prices")

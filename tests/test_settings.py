@@ -20,3 +20,15 @@ def test_defaults(settings):
 def test_connect_idempotent(cfg):
     from translator import db
     db.connect(cfg.db_path); db.connect(cfg.db_path)
+
+def test_unsign_rejects_non_ascii(crypto):
+    assert crypto.unsign("abc.é") is None
+    assert crypto.unsign("!!!garbage.xx") is None
+    assert crypto.unsign("nodot") is None
+
+def test_cap_eur_non_finite(settings):
+    for v in ("nan", "inf", "-inf"):
+        settings.set("cap_eur", v)
+        assert settings.cap_eur() is None
+    settings.set("cap_eur", "5.5")
+    assert settings.cap_eur() == 5.5

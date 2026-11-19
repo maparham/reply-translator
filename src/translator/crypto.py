@@ -37,7 +37,7 @@ class Crypto:
     def unsign(self, token: str) -> dict | None:
         try:
             body, mac = token.split(".", 1)
-            if not hmac.compare_digest(mac, self._mac(body)):
+            if not hmac.compare_digest(mac.encode(), self._mac(body).encode()):
                 return None
             payload = json.loads(_unb64(body))
         except ValueError:
