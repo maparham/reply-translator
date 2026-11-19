@@ -116,4 +116,5 @@ def test_tweak_requires_previous(anon_client):
 
 def test_signed_in_user_generate(user_client):
     r = user_client.post("/api/generate", json=body())
-    assert r.status_code == 200 and r.json()["history_id"] is None
+    assert r.status_code == 200 and r.json()["history_id"]
+    assert user_client.get("/api/history").json()[0]["id"] == r.json()["history_id"]

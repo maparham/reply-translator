@@ -15,7 +15,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from . import clerk as clerk_mod
-from . import db, frame, providers, sessions, styles, turnstile, usage
+from . import db, frame, history, providers, sessions, styles, turnstile, usage
 from .config import Config
 from .crypto import Crypto
 from .settings import Settings
@@ -245,8 +245,16 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
         return _
 
     def _maybe_save(session: dict, req, style_label: str, language_code: str, output: frame.Output) -> str | None:
-        """Task 8 fills this in: persist to history for signed-in users when req.save is set."""
-        return None
+        if session["kind"] != "user" or not session["uid"] or not req.save:
+            return None
+        inputs = {"text": req.text, "received": req.received or "", "my_language": req.my_language}
+        try:
+            return history.save(conn, session["uid"], req.history_id, style_label, language_code,
+                                inputs, output.to_dict())
+        except PermissionError:
+            # Not the caller's item: don't fail their tweak, store it as a new item instead.
+            return history.save(conn, session["uid"], None, style_label, language_code,
+                                inputs, output.to_dict())
 
     app.state.maybe_save = _maybe_save
 
@@ -296,6 +304,29 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
     @app.post("/api/tweak")
     async def tweak_endpoint(req: TweakIn, session: dict = Depends(require_open)):
         return await _run(session, req, req.tweak, req.previous)
+
+    @app.get("/api/history")
+    def history_list(user: dict = Depends(require_user)):
+        return history.list_items(conn, user["uid"])
+
+    @app.delete("/api/history/{item_id}")
+    def history_delete(item_id: str, user: dict = Depends(require_user)):
+        if not history.delete(conn, user["uid"], item_id):
+            raise HTTPException(404, "Not found")
+        return {"ok": True}
+
+    @app.delete("/api/history")
+    def history_delete_all(user: dict = Depends(require_user)):
+        return {"deleted": history.delete_all(conn, user["uid"])}
+
+    @app.post("/api/history/import")
+    async def history_import(request: Request, user: dict = Depends(require_user)):
+        items = (await _json(request)).get("items")
+        if not isinstance(items, list):
+            raise HTTPException(400, "Invalid request")
+        if len(items) > history.MAX_ITEMS:
+            raise HTTPException(400, "Too many items")
+        return {"imported": history.import_items(conn, user["uid"], items)}
 
     @app.get("/api/admin/settings")
     def admin_settings_stub(_: dict = Depends(require_admin)):
