@@ -116,3 +116,8 @@ body.admin .who { max-width: 100%; }
 .doc ul { padding-left: 20px; }
 .primary.danger { background: var(--danger); }
 .footer { margin-top: 32px; font-size: 13px; text-align: center; }
+.textbox { position: relative; }
+.textbox textarea { padding-right: 64px; }
+.boxbtn { position: absolute; top: 6px; right: 6px; border: 0; background: transparent; color: var(--accent);
+  font: inherit; font-size: 14px; font-weight: 600; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+.boxbtn:hover { background: rgba(0,0,0,.05); }

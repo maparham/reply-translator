@@ -262,6 +262,7 @@ function historyRow(item) {
 function loadItem(item) {
   $("#received").value = item.inputs.received || "";
   $("#text").value = item.inputs.text || "";
+  ["#received", "#text"].forEach((id) => $(id).syncBoxButton?.());
   const style = S.cfg.styles.find((s) => s.label === item.style_label);
   if (style) $("#style").value = String(style.id);
   if ([...$("#lang").options].some((o) => o.value === item.language_code)) $("#lang").value = item.language_code;
@@ -322,9 +323,32 @@ async function refreshConfig() {
   if (!S.user) { S.sessionOk = false; setupTurnstile(); resetTurnstile(); }
 }
 
+// ---------- paste / clear buttons inside the text boxes ----------
+function setupBoxButtons() {
+  document.querySelectorAll(".boxbtn").forEach((btn) => {
+    const box = document.getElementById(btn.dataset.for);
+    const sync = () => {
+      const empty = !box.value;
+      btn.textContent = empty ? "Paste" : "✕";
+      btn.setAttribute("aria-label", empty ? "Paste" : "Clear");
+    };
+    box.addEventListener("input", sync);
+    btn.addEventListener("click", async () => {
+      if (box.value) { box.value = ""; sync(); box.focus(); return; }
+      try {
+        const t = (await navigator.clipboard.readText()).trim();
+        if (t) { box.value = t.slice(0, 8000); sync(); }
+      } catch { box.focus(); showError("Your browser blocked pasting; press Ctrl+V (or long-press → Paste) in the box."); }
+    });
+    sync();
+    box.syncBoxButton = sync;
+  });
+}
+
 // ---------- init ----------
 async function init() {
   $("#form").addEventListener("submit", (e) => { e.preventDefault(); run(null, $("#generate")); });
+  setupBoxButtons();
   try { S.cfg = await rawApi("GET", "/api/config"); }
   catch (e) { showNotice("Could not load the app. Please reload."); return; }
   S.user = S.cfg.user;

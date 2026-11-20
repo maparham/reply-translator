@@ -144,10 +144,8 @@ fun MainScreen(vm: MainViewModel) {
         }
       }
 
-      OutlinedTextField(vm.received, { vm.received = it.take(8000) }, Modifier.fillMaxWidth(), minLines = 3,
-        label = { Text("What they wrote (optional)") }, placeholder = { Text("Paste what they wrote to you") })
-      OutlinedTextField(vm.text, { vm.text = it.take(8000) }, Modifier.fillMaxWidth(), minLines = 3,
-        label = { Text("What you want to say") }, placeholder = { Text("e.g. say no, I can only do Tuesday") })
+      InputField(vm.received, { vm.received = it }, "What they wrote (optional)", "Paste what they wrote to you")
+      InputField(vm.text, { vm.text = it }, "What you want to say", "e.g. say no, I can only do Tuesday")
 
       Picker("Style", cfg.styles.map { it.id to it.label }, vm.styleId) { vm.styleId = it; vm.savePrefs() }
       cfg.styles.firstOrNull { it.id == vm.styleId }?.description?.takeIf { it.isNotBlank() }?.let {
@@ -196,6 +194,33 @@ fun MainScreen(vm: MainViewModel) {
       Spacer(Modifier.height(24.dp))
     }
   }
+}
+
+private const val MAX_CHARS = 8000
+
+private fun clipboardText(ctx: Context): String? =
+  ctx.getSystemService(ClipboardManager::class.java).primaryClip
+    ?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(ctx)?.toString()?.takeIf { it.isNotBlank() }
+
+/** A text box with one button inside: Paste when it's empty, ✕ (clear) when it has text. */
+@Composable
+private fun InputField(value: String, onChange: (String) -> Unit, label: String, placeholder: String) {
+  val ctx = LocalContext.current
+  OutlinedTextField(
+    value, { onChange(it.take(MAX_CHARS)) }, Modifier.fillMaxWidth(), minLines = 3,
+    label = { Text(label) }, placeholder = { Text(placeholder) },
+    trailingIcon = {
+      if (value.isEmpty()) {
+        TextButton(onClick = {
+          val t = clipboardText(ctx)
+          if (t != null) onChange(t.trim().take(MAX_CHARS))
+          else Toast.makeText(ctx, "Nothing to paste. Copy a text first.", Toast.LENGTH_SHORT).show()
+        }) { Text("Paste") }
+      } else {
+        IconButton(onClick = { onChange("") }) { Text("✕", style = MaterialTheme.typography.titleMedium) }
+      }
+    },
+  )
 }
 
 @Composable

@@ -27,10 +27,16 @@
 
   <form id="form" method="post" autocomplete="off">
     <label for="received">Message you received <span class="opt">optional</span></label>
-    <textarea id="received" rows="4" maxlength="8000" placeholder="Paste what they wrote to you"></textarea>
+    <div class="textbox">
+      <textarea id="received" rows="4" maxlength="8000" placeholder="Paste what they wrote to you"></textarea>
+      <button type="button" class="boxbtn" data-for="received" aria-label="Paste">Paste</button>
+    </div>
 
     <label for="text">What you want to say <span class="opt">any language</span></label>
-    <textarea id="text" rows="4" maxlength="8000" placeholder="e.g. say no, I can only do Tuesday" required></textarea>
+    <div class="textbox">
+      <textarea id="text" rows="4" maxlength="8000" placeholder="e.g. say no, I can only do Tuesday" required></textarea>
+      <button type="button" class="boxbtn" data-for="text" aria-label="Paste">Paste</button>
+    </div>
 
     <div class="row">
       <div class="field">
