@@ -25,10 +25,16 @@ jobs:
             "$RUNNER_TEMP/release.jks" "$KEYSTORE_PASSWORD" "$KEYSTORE_PASSWORD" > android/keystore.properties
       - name: Test and build
         working-directory: android
-        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleRelease
-      - name: Name the APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk "reply-translator-${GITHUB_SHA::7}.apk"
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleRelease :app:bundleRelease
+      - name: Name the APK and bundle
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk "reply-translator-${GITHUB_SHA::7}.apk"
+          cp android/app/build/outputs/bundle/release/app-release.aab "reply-translator-${GITHUB_SHA::7}.aab"
       - uses: actions/upload-artifact@v4
         with:
           name: reply-translator-apk
           path: reply-translator-*.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reply-translator-aab
+          path: reply-translator-*.aab

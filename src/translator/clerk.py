@@ -105,6 +105,14 @@ class Verifier:
             raise ClerkError("not a user's session token")
         return claims
 
+    async def delete_user(self, user_id: str) -> None:
+        """Deletes the Clerk user (their sign-in identity). Already gone counts as done."""
+        if not self.secret:
+            raise ClerkError("CLERK_SECRET_KEY is not set")
+        r = await self.http.delete(f"{BACKEND_API}/users/{user_id}", headers={"Authorization": f"Bearer {self.secret}"}, timeout=10)
+        if r.status_code not in (200, 404):
+            raise ClerkError(f"Clerk answered {r.status_code} deleting the user")
+
     async def email(self, user_id: str) -> str:
         """The user's verified primary email, lower-cased."""
         if not self.secret:

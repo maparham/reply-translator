@@ -103,9 +103,20 @@ fun MainScreen(vm: MainViewModel) {
         if (u != null) {
           var menu by remember { mutableStateOf(false) }
           TextButton(onClick = { menu = true }) { Text(u.email, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 180.dp)) }
+          var confirmDelete by remember { mutableStateOf(false) }
           DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(text = { Text("Sign out") }, onClick = { menu = false; vm.signOut() })
+            DropdownMenuItem(text = { Text("Delete account", color = MaterialTheme.colorScheme.error) },
+              onClick = { menu = false; confirmDelete = true })
           }
+          if (confirmDelete) AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Delete your account?") },
+            text = { Text("This deletes ${u.email} and all history saved to it. It cannot be undone.") },
+            confirmButton = { TextButton(onClick = { confirmDelete = false; vm.deleteAccount() }) {
+              Text("Delete", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+          )
         } else if (cfg?.clerkPublishableKey != null) {
           TextButton(onClick = vm::signIn, enabled = vm.busy == null) { Text(if (vm.busy == "signin") "Signing in…" else "Sign in") }
         }
@@ -178,6 +189,10 @@ fun MainScreen(vm: MainViewModel) {
       }
 
       HistorySection(vm, ctx)
+      TextButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(vm.baseUrl + "/privacy"))) },
+        modifier = Modifier.align(Alignment.CenterHorizontally)) {
+        Text("Privacy policy", style = MaterialTheme.typography.bodySmall)
+      }
       Spacer(Modifier.height(24.dp))
     }
   }

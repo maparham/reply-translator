@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delete your account · Reply Translator</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<main class="wrap doc">
+<h1>Delete your Reply Translator account</h1>
+<p>Deleting your account removes, immediately and for good:</p>
+<ul>
+<li>your account and sign-in (your email address and user ID),</li>
+<li>all history saved to your account.</li>
+</ul>
+<p>Anonymous usage counts (tokens and cost per day, not linked to you) are kept. History saved only on a device is
+not on our server; delete it there or uninstall the app.</p>
+
+<p id="signed-out" hidden>To delete your account here, first <a href="/">sign in on Reply Translator</a> with the same
+Google account, then come back to this page. In the Android app, use "Delete account" in the account menu. You can
+also email <a href="mailto:mahmoud.shahrood@gmail.com">mahmoud.shahrood@gmail.com</a> from the address of your account.</p>
+<div id="signed-in" hidden>
+  <p>Signed in as <b id="email"></b>.</p>
+  <button id="delete" class="primary danger" type="button">Delete my account</button>
+</div>
+<p id="done" class="notice ok" hidden>Your account and its data have been deleted.</p>
+<p id="error" class="error" role="alert" hidden></p>
+<p><a href="/privacy">Privacy policy</a> · <a href="/">Reply Translator</a></p>
+</main>
+<script src="/static/common.js"></script>
+<script src="/static/delete-account.js"></script>
+</body>
+</html>

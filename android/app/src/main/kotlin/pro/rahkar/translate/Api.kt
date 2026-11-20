@@ -106,6 +106,8 @@ class Api(private val baseUrl: String, cookieStore: CookieStore, client: OkHttpC
   suspend fun generate(req: GenerateRequest): GenerateResponse =
     json.decodeFromString(call("POST", if (req.tweak != null) "/api/tweak" else "/api/generate", json.encodeToString(req)))
 
+  suspend fun deleteAccount() { call("DELETE", "/api/account"); cookies.clear() }
+
   suspend fun history(): List<HistoryItem> = json.decodeFromString(call("GET", "/api/history"))
 
   suspend fun deleteHistory(id: String) { call("DELETE", "/api/history/" + java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20")) }

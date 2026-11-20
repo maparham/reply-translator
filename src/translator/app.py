@@ -266,7 +266,7 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
     def health():
         return {"ok": True}
 
-    pages = {name: _versioned_page(name) for name in ("index.html", "admin.html", "app-check.html")}
+    pages = {name: _versioned_page(name) for name in ("index.html", "admin.html", "app-check.html", "privacy.html", "delete-account.html")}
 
     @app.get("/")
     def index():
@@ -276,6 +276,14 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
     def app_check_page():
         """Turnstile for the Android app: the app loads this in a web view and receives the token over a JS bridge."""
         return HTMLResponse(pages["app-check.html"], headers={"Cache-Control": "no-cache"})
+
+    @app.get("/privacy")
+    def privacy_page():
+        return HTMLResponse(pages["privacy.html"], headers={"Cache-Control": "no-cache"})
+
+    @app.get("/delete-account")
+    def delete_account_page():
+        return HTMLResponse(pages["delete-account.html"], headers={"Cache-Control": "no-cache"})
 
     @app.get("/admin")
     def admin_page():
@@ -337,6 +345,21 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
 
     @app.post("/api/logout")
     def logout():
+        resp = JSONResponse({"ok": True})
+        resp.delete_cookie(sessions.COOKIE, path="/")
+        return resp
+
+    @app.delete("/api/account")
+    async def delete_account(user: dict = Depends(require_user)):
+        """Deletes the account: the Clerk user first (so a failure leaves everything as it was), then our data."""
+        if clerk_verifier is None:
+            raise HTTPException(503, "Sign-in is not configured")
+        try:
+            await clerk_verifier.delete_user(user["uid"])
+        except (clerk_mod.ClerkError, httpx.HTTPError):
+            raise HTTPException(502, "Couldn't delete the account, try again") from None
+        history.delete_all(conn, user["uid"])
+        conn.execute("DELETE FROM users WHERE id=?", (user["uid"],))
         resp = JSONResponse({"ok": True})
         resp.delete_cookie(sessions.COOKIE, path="/")
         return resp

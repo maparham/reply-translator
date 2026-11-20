@@ -53,8 +53,17 @@ class FakeClerk:
             raise clerk_mod.ClerkError("bad token")
         return {"sub": self._USERS[token][0]}
 
+    def __init__(self):
+        self.deleted = []
+        self.delete_fails = False
+
     async def email(self, uid):
         return next(e for u, e in self._USERS.values() if u == uid)
+
+    async def delete_user(self, uid):
+        if self.delete_fails:
+            raise clerk_mod.ClerkError("Clerk answered 500")
+        self.deleted.append(uid)
 
 
 class FakeGen:

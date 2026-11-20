@@ -111,3 +111,8 @@ body.admin .top { flex-wrap: wrap; }
 body.admin .account { flex-wrap: wrap; }
 body.admin .who { max-width: 100%; }
 @media (max-width: 520px) { body.admin h1 { font-size: 19px; } body.admin .who { display: none; } }
+.doc h2 { font-size: 17px; margin: 22px 0 6px; }
+.doc p, .doc li { line-height: 1.5; }
+.doc ul { padding-left: 20px; }
+.primary.danger { background: var(--danger); }
+.footer { margin-top: 32px; font-size: 13px; text-align: center; }

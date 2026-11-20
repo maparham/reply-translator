@@ -256,7 +256,32 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
       user = null
       sessionOk = false
     }
+    clearAfterSignOut()
+  }
+
+  /** Deletes the account and everything saved with it on the server (Google Play requires this in the app). */
+  fun deleteAccount() {
+    if (busy != null) return
+    busy = "delete"
+    viewModelScope.launch {
+      try {
+        sessionLock.withLock {
+          api.deleteAccount()
+          runCatching { Clerk.auth.signOut() }
+          user = null
+          sessionOk = false
+        }
+        clearAfterSignOut()
+        error = "Your account and its history were deleted."
+      } catch (e: ApiException) { error = e.message }
+      finally { busy = null }
+    }
+  }
+
+  private suspend fun clearAfterSignOut() {
     histId = null
+    last = null
+    result = null
     importCount = 0
     refreshHistory()
   }

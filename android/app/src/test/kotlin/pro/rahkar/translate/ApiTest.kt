@@ -62,4 +62,14 @@ class ApiTest {
     runCatching { api.logout() }
     assertNull(store.v)
   }
+
+  @Test fun deleteAccountCallsEndpointAndForgetsCookie() = runTest {
+    store.v = "tr_session=abc; Path=/"
+    server.enqueue(MockResponse.Builder().body("{\"ok\":true}").build())
+    api.deleteAccount()
+    val req = server.takeRequest()
+    assertEquals("DELETE", req.method)
+    assertEquals("/api/account", req.url.encodedPath)
+    assertNull(store.v)
+  }
 }
