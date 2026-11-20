@@ -37,6 +37,7 @@ import androidx.compose.foundation.background
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.withStyle
 import com.clerk.api.Clerk
 import java.time.Instant
 import java.time.ZoneId
