@@ -217,20 +217,36 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     viewModelScope.launch {
       try {
         if (!clerkReady()) { error = "Sign-in is not available right now, try again"; return@launch }
-        if (Clerk.session == null) {
-          when (val r = Clerk.auth.signInWithGoogleOneTap()) {
-            is ClerkResult.Success -> Unit
-            is ClerkResult.Failure -> {
-              val msg = r.error?.errors?.firstOrNull()?.let { it.longMessage ?: it.message }
-              if (msg != null || r.throwable !is kotlinx.coroutines.CancellationException) error = msg ?: "Sign-in didn't finish"
-              return@launch
-            }
-          }
-        }
+        if (Clerk.session == null && !googleSignIn()) return@launch
         if (!exchangeClerk()) error = "Sign-in failed, try again"
       } catch (e: ApiException) { error = e.message }
       finally { busy = null }
     }
+  }
+
+  /**
+   * Google's own account picker first; if Google refuses it (e.g. this signing key isn't registered with Google
+   * yet), Clerk's browser sign-in in a Chrome tab, which only needs the website's Google login. False if it didn't
+   * finish (an error is shown unless the user just closed the picker).
+   */
+  private suspend fun googleSignIn(): Boolean {
+    val oneTap = Clerk.auth.signInWithGoogleOneTap()
+    if (oneTap is ClerkResult.Success) return true
+    val failure = oneTap as ClerkResult.Failure
+    if (isCancel(failure)) return false
+    return when (val r = Clerk.auth.signInWithOAuth(com.clerk.api.sso.OAuthProvider.GOOGLE)) {
+      is ClerkResult.Success -> true
+      is ClerkResult.Failure -> {
+        if (!isCancel(r)) error = r.error?.errors?.firstOrNull()?.let { it.longMessage ?: it.message } ?: "Sign-in didn't finish"
+        false
+      }
+    }
+  }
+
+  private fun isCancel(f: ClerkResult.Failure<*>): Boolean {
+    val t = f.throwable
+    return t is kotlinx.coroutines.CancellationException ||
+      t?.javaClass?.simpleName?.contains("Cancel") == true || t?.message?.contains("cancel", ignoreCase = true) == true
   }
 
   fun signOut() = viewModelScope.launch {

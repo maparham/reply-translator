@@ -20,8 +20,8 @@ android {
     applicationId = "pro.rahkar.translate"
     minSdk = 26
     targetSdk = 36
-    versionCode = 2
-    versionName = "1.0.1"
+    versionCode = 3
+    versionName = "1.0.2"
     buildConfigField("String", "BASE_URL", "\"https://translate.rahkar.pro\"")
     // Public key (it is in every page of the website too).
     buildConfigField("String", "CLERK_PUBLISHABLE_KEY", "\"pk_live_Y2xlcmsudHJhbnNsYXRlLnJhaGthci5wcm8k\"")
