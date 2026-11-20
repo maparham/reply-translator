@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import math
@@ -27,6 +28,9 @@ from .crypto import Crypto
 from .settings import Settings
 
 STATIC = Path(__file__).parent / "static"
+# At most this many provider calls run at once; the rest wait. Bounds how far parallel requests can overshoot
+# the daily cap (the cap is checked again once a call gets its turn) and the memory a burst can use.
+MAX_CONCURRENT_GENERATIONS = 6
 
 
 def _versioned_page(name: str) -> str:
@@ -183,6 +187,7 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
     styles.seed(conn)
     crypto = Crypto(cfg.secret_key)
     settings = Settings(conn, crypto)
+    generating = asyncio.Semaphore(MAX_CONCURRENT_GENERATIONS)
     owns_http = http is None
     http = http or httpx.AsyncClient(timeout=60.0)
     if clerk_verifier is None and cfg.clerk_publishable_key and cfg.clerk_secret_key:
@@ -367,7 +372,8 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
         return language
 
     async def _call(req, language: str, style_prompt: str, provider: str, api_key: str, model: str,
-                    style_id: int | None, tweak: str | None, previous: PreviousIn | None) -> frame.Output:
+                    style_id: int | None, tweak: str | None, previous: PreviousIn | None,
+                    public: bool = True) -> frame.Output:
         if tweak is not None and tweak not in frame.TWEAKS:
             raise HTTPException(400, "Unknown change")
         reply_mode = bool((req.received or "").strip())
@@ -375,8 +381,13 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
             style_prompt, language, req.my_language, req.text, req.received,
             frame.Output(**previous.model_dump()) if previous else None, tweak)
         try:
-            gen = await app.state.generate(provider, api_key, model, system, user, frame.OUTPUT_SCHEMA, http)
-        except providers.ProviderError:
+            async with generating:
+                if public and not is_open(conn, settings):  # the cap may have been reached while this one waited
+                    raise HTTPException(503, "Temporarily unavailable")
+                gen = await app.state.generate(provider, api_key, model, system, user, frame.OUTPUT_SCHEMA, http)
+        except providers.ProviderError as e:
+            if e.usage is not None:  # the provider billed it even though it failed
+                usage.record(conn, settings, style_id, model, e.usage)
             raise HTTPException(502, "Couldn't generate, try again") from None
         usage.record(conn, settings, style_id, model, gen.usage)
         try:
@@ -573,7 +584,7 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
         if not api_key:
             raise HTTPException(400, "This style is not configured yet")
         output = await _call(req, language, req.prompt, req.provider, api_key, req.model.strip(),
-                             None, None, None)
+                             None, None, None, public=False)
         return {"result": output.to_dict(), "history_id": None}
 
     @app.get("/api/admin/usage")

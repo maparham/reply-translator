@@ -146,3 +146,49 @@ async def test_default_base_url(monkeypatch):
     async with httpx.AsyncClient(transport=httpx.MockTransport(h)) as http:
         await providers.list_models("anthropic", "k", http)
     assert seen["url"] == "https://api.anthropic.com/v1/models?limit=1000"
+
+
+async def test_output_tokens_are_capped():
+    seen = {}
+
+    def h(req):
+        seen[req.url.path] = json.loads(req.content)
+        if "chat" in req.url.path:
+            return httpx.Response(200, json={"choices": [{"message": {"content": "{}"}}], "usage": {}})
+        return httpx.Response(200, json={"content": [{"type": "text", "text": "{}"}], "usage": {}})
+    async with client(h) as http:
+        await providers.generate("anthropic", "k", "m", "S", "U", {}, http)
+        await providers.generate("openai", "k", "m", "S", "U", {}, http)
+    assert seen["/v1/messages"]["max_tokens"] == providers.MAX_OUTPUT_TOKENS
+    assert seen["/v1/chat/completions"]["max_completion_tokens"] == providers.MAX_OUTPUT_TOKENS
+    assert providers.MAX_OUTPUT_TOKENS <= 4096
+
+
+@pytest.mark.parametrize("provider,resp", [
+    ("anthropic", {"content": [], "stop_reason": "max_tokens", "usage": {"input_tokens": 9, "output_tokens": 4096}}),
+    ("anthropic", {"content": [{"type": "text", "text": "{trunc"}], "usage": {"input_tokens": 9, "output_tokens": 4096}}),
+    ("openai", {"choices": [{"message": {"content": "{trunc"}}], "usage": {"prompt_tokens": 9, "completion_tokens": 4096}}),
+])
+async def test_failure_after_billing_carries_usage(provider, resp):
+    async with client(lambda r: httpx.Response(200, json=resp)) as http:
+        with pytest.raises(providers.ProviderError) as e:
+            await providers.generate(provider, "k", "m", "S", "U", {}, http)
+    assert e.value.usage == providers.Usage(9, 4096)
+
+
+async def test_read_timeout_charges_worst_case():
+    def h(req):
+        raise httpx.ReadTimeout("slow", request=req)
+    async with client(h) as http:
+        with pytest.raises(providers.ProviderError) as e:
+            await providers.generate("anthropic", "k", "m", "S" * 300, "U" * 300, {}, http)
+    assert e.value.usage.output_tokens == providers.MAX_OUTPUT_TOKENS and e.value.usage.input_tokens >= 200
+
+
+async def test_connect_error_charges_nothing():
+    def h(req):
+        raise httpx.ConnectError("down", request=req)
+    async with client(h) as http:
+        with pytest.raises(providers.ProviderError) as e:
+            await providers.generate("anthropic", "k", "m", "S", "U", {}, http)
+    assert e.value.usage is None

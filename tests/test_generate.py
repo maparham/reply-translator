@@ -118,3 +118,13 @@ def test_signed_in_user_generate(user_client):
     r = user_client.post("/api/generate", json=body())
     assert r.status_code == 200 and r.json()["history_id"]
     assert user_client.get("/api/history").json()[0]["id"] == r.json()["history_id"]
+
+
+def test_usage_recorded_when_provider_fails_after_billing(anon_client, fake_gen, conn, settings):
+    # e.g. the model hit max_tokens: the provider charged for the tokens, so they must count toward the cap.
+    settings.set("prices", '{"claude-sonnet-5-5": {"in": 3, "out": 15}}')
+    fake_gen.fail = "billed_error"
+    r = anon_client.post("/api/generate", json=body())
+    assert r.status_code == 502
+    row = conn.execute("select input_tokens, output_tokens, cost_eur from usage").fetchone()
+    assert (row[0], row[1]) == (10, 4096) and row[2] > 0

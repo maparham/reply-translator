@@ -67,6 +67,8 @@ class FakeGen:
         self.calls.append({"provider": provider, "api_key": api_key, "model": model, "system": system, "user": user})
         if self.fail == "provider_error":
             raise ProviderError("fake failure")
+        if self.fail == "billed_error":
+            raise ProviderError("fake failure after the provider billed", usage=Usage(10, 4096))
         if self.fail == "bad_json":
             return Generation([], Usage(10, 5))
         return Generation(self.data, Usage(10, 5))
