@@ -52,6 +52,20 @@ async def test_openai_errors(resp):
             await providers.generate("openai", "k", "m", "S", "U", {}, http)
 
 
+@pytest.mark.parametrize("model, effort", [("claude-haiku-5-5", "low"), ("claude-sonnet-5-5", None)])
+async def test_anthropic_effort_low_for_haiku(model, effort):
+    # Haiku thinks by default (~1,000 extra output tokens, 3x slower); a short reply needs little of it.
+    seen = {}
+
+    def h(req):
+        seen["body"] = json.loads(req.content)
+        return httpx.Response(200, json={"content": [{"type": "text", "text": "{}"}], "stop_reason": "end_turn",
+                                         "usage": {"input_tokens": 1, "output_tokens": 1}})
+    async with client(h) as http:
+        await providers.generate("anthropic", "k", model, "S", "U", {}, http)
+    assert seen["body"]["output_config"].get("effort") == effort
+
+
 @pytest.mark.parametrize("content", [[{"type": "text", "text": "not json"}], [{"type": "thinking", "thinking": ""}], []])
 async def test_anthropic_no_json_text(content):
     r = httpx.Response(200, json={"content": content, "usage": {"input_tokens": 1, "output_tokens": 1}})

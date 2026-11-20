@@ -13,6 +13,11 @@ MY_LANGUAGES = (
 OUTPUT_SCHEMA: dict = {
     "type": "object",
     "properties": {
+        # First, so the model settles the user's language before writing the parts that must be in it (Auto).
+        "user_language": {
+            "type": "string",
+            "description": "Name of the language the user wrote <what_i_want_to_say> in, e.g. English.",
+        },
         "received_gist": {
             "type": "string",
             "description": "Short summary of the received message in the user's language; empty string if there is no received message.",
@@ -26,7 +31,7 @@ OUTPUT_SCHEMA: dict = {
             "description": "Faithful rendering of message in the user's language.",
         },
     },
-    "required": ["received_gist", "message", "back_translation"],
+    "required": ["user_language", "received_gist", "message", "back_translation"],
     "additionalProperties": False,
 }
 
@@ -69,12 +74,14 @@ class Output:
 _SYSTEM = """You write messages for a person who is not fluent in {target}. The message you produce must be ready to send exactly as written, with no manual edits.
 
 Task:
+- First set user_language to the name of the language the user wrote <what_i_want_to_say> in (judge by its words, even if it is short).
 - Write a message in {target}. The user's text may be in any language; it is what they want to say (their intent), not text to translate word for word. Express that intent the way a fluent native writer of {target} would.
-- If a received message is provided, write a reply that fits it, and summarize the received message in {my} as received_gist. If there is no received message, received_gist must be an empty string.
-- back_translation is a faithful rendering of message in {my}, so the user can check what they are sending. Do not improve or soften it.
+- If a received message is provided, write a reply that fits it, and summarize the received message in {my} as received_gist (written in {my}, not in the received message's language, unless they are the same). If there is no received message, received_gist must be an empty string.
+- back_translation is a faithful rendering of message in {my}, so the user can check what they are sending. It must be written in {my}, never in {target} (unless that is the same language). Do not improve or soften it.
 
 Rules:
-- Never add facts, names, dates, promises or details the user did not give.
+- Never add facts, names, dates, promises or details the user did not give, and no opinions, praise, feelings or extra sentences they did not express (if they say "thanks for the cake", do not add that it tasted good).
+- Write as the user, in the first person singular ("I"), unless the user's text speaks for several people ("we").
 - No fill-in placeholders such as [Name], ___ or "..." standing in for missing information, no alternatives, no commentary, no explanations. If a name is not known, leave it out and use a natural greeting without one.
 - Greeting and closing: add a greeting line and a sign-off only if the received message has them, or the user's text contains or asks for one. Otherwise write only the content, with no greeting and no sign-off, even if the style instructions describe them; the style's forms apply when they are used.
 - The person you write to is the sender of the received message. When you greet and they sign with a name (including "i.A." or after a closing like "Mit freundlichen Grüßen"), or the user names them, greet them by that name in the form the style asks for (e.g. "Sehr geehrte Frau Huber", "Lieber Thomas"), keeping any title they use. Use Frau/Herr (or a gendered form like "Sehr geehrte"/"Sehr geehrter", "Liebe"/"Lieber") only when the name or message makes the gender clear; otherwise use a neutral greeting with the full name, e.g. "Guten Tag Alex Berger," or "Hallo Alex,", never words like "Person". A general greeting such as "Sehr geehrte Damen und Herren" is only for when no name is known.
@@ -103,7 +110,7 @@ def build_prompt(
         raise ValueError("tweak and previous must be given together")
     if tweak is not None and tweak not in TWEAKS:
         raise ValueError(f"unknown tweak: {tweak}")
-    my = "the language the user wrote <what_i_want_to_say> in" if my_language == AUTO else my_language
+    my = "the user's language (user_language: the language they wrote <what_i_want_to_say> in)" if my_language == AUTO else my_language
     system = _SYSTEM.format(target=target_language, my=my, style=style_prompt)
     received = (received or "").strip()
     parts = []

@@ -20,26 +20,62 @@ class Style:
     position: int
 
 
-_SEED_MODEL = "claude-sonnet-5-5"
+_SEED_MODEL = "claude-haiku-5-5"
+
+# Target languages ("To"); German (Austria) first, it is the default.
+SEED_LANGUAGES = [
+    {"code": "de-AT", "name": "German (Austria)"},
+    {"code": "de-DE", "name": "German (Germany)"},
+    {"code": "de-CH", "name": "German (Switzerland)"},
+    {"code": "en", "name": "English"},
+    {"code": "fr", "name": "French"},
+    {"code": "es", "name": "Spanish"},
+    {"code": "it", "name": "Italian"},
+    {"code": "pt", "name": "Portuguese"},
+    {"code": "nl", "name": "Dutch"},
+    {"code": "pl", "name": "Polish"},
+    {"code": "cs", "name": "Czech"},
+    {"code": "sk", "name": "Slovak"},
+    {"code": "hu", "name": "Hungarian"},
+    {"code": "ro", "name": "Romanian"},
+    {"code": "hr", "name": "Croatian"},
+    {"code": "sr", "name": "Serbian"},
+    {"code": "bs", "name": "Bosnian"},
+    {"code": "sl", "name": "Slovenian"},
+    {"code": "bg", "name": "Bulgarian"},
+    {"code": "el", "name": "Greek"},
+    {"code": "sq", "name": "Albanian"},
+    {"code": "tr", "name": "Turkish"},
+    {"code": "ru", "name": "Russian"},
+    {"code": "uk", "name": "Ukrainian"},
+    {"code": "ar", "name": "Arabic"},
+    {"code": "fa", "name": "Persian"},
+    {"code": "ur", "name": "Urdu"},
+    {"code": "hi", "name": "Hindi"},
+    {"code": "zh", "name": "Chinese (Simplified)"},
+    {"code": "ja", "name": "Japanese"},
+    {"code": "ko", "name": "Korean"},
+    {"code": "vi", "name": "Vietnamese"},
+]
 
 _SEED_STYLES = [
     (
         "Official",
         "Formal and polite, for authorities, landlords, schools and doctors",
-        """Write in a formal, courteous register suitable for authorities, landlords, schools, doctors and other official contacts in Austria.
-Address the other person with "Sie" throughout, in complete, well-structured sentences. Be polite and clear; state the request or answer directly without sounding cold.
-When the message has a greeting and closing (only if the input has them, see the general rules): greet with the recipient's exact name and title when the received message gives one (e.g. "Sehr geehrte Frau Mag. Huber"), otherwise "Sehr geehrte Damen und Herren", and close with "Mit freundlichen Grüßen".
-Use standard Austrian vocabulary where it fits, e.g. "Jänner" instead of "Januar", "Termin" for appointments; use "Ordination" only when writing to a doctor's practice.
-No slang, no colloquial contractions (not "gibt's", "hab'", "ham"), no emojis.
+        """Write in a formal, courteous register suitable for authorities, landlords, schools, doctors and other official contacts.
+Use the target language's formal form of address throughout (e.g. "Sie" in German, "vous" in French, "usted" in Spanish), in complete, well-structured sentences. Be polite and clear; state the request or answer directly without sounding cold.
+When the message has a greeting and closing (only if the input has them, see the general rules): use the target language's standard formal forms. Greet with the recipient's exact name and title when the received message gives one (e.g. "Sehr geehrte Frau Mag. Huber"), otherwise with the general formal greeting (e.g. "Sehr geehrte Damen und Herren"), and close formally (e.g. "Mit freundlichen Grüßen").
+In German (Austria), use standard Austrian vocabulary where it fits, e.g. "Jänner" instead of "Januar", "Termin" for appointments; use "Ordination" only when writing to a doctor's practice.
+No slang, no colloquial contractions (in German not "gibt's", "hab'", "ham"), no emojis.
 Never invent names, dates, numbers or facts that are not in the input, and never output placeholders of any kind (no bracketed names, no ellipses standing in for missing text, no slash forms for titles).""",
     ),
     (
         "Friendly",
         "Warm and casual, like a chat message",
-        """Write in a warm, natural tone, like a friendly WhatsApp message in Austria.
-Use "du" by default, but use "Sie" if the received message uses "Sie". If there is a greeting (only if the input has one, see the general rules): with "Sie" use "Guten Tag" or "Grüß Gott", never "Servus" or "Hallo"; keep "Servus" for people the user clearly knows well.
-Keep sentences short and conversational; light colloquial phrasing is fine, but nothing sloppy or rude. If there is a sign-off, use "Liebe Grüße".
-Use Austrian vocabulary where it fits, e.g. "Jänner" instead of "Januar", "passt" for agreement.
+        """Write in a warm, natural tone, like a friendly chat message.
+Use the target language's informal form of address by default (e.g. "du" in German, "tu" in French), but use the formal form if the received message uses it. If there is a greeting (only if the input has one, see the general rules): with the formal form use a polite greeting (in German (Austria) "Guten Tag" or "Grüß Gott", never "Servus" or "Hallo"); keep very casual greetings such as "Servus" for people the user clearly knows well.
+Keep sentences short and conversational; light colloquial phrasing is fine, but nothing sloppy or rude. If there is a sign-off, use a warm one (e.g. "Liebe Grüße").
+In German (Austria), use Austrian vocabulary where it fits, e.g. "Jänner" instead of "Januar", "passt" for agreement.
 At most one emoji, and only where it truly fits.
 Never invent names, dates, numbers or facts that are not in the input, and never output placeholders of any kind (no bracketed names, no ellipses standing in for missing text).""",
     ),
@@ -47,9 +83,9 @@ Never invent names, dates, numbers or facts that are not in the input, and never
         "Neutral",
         "Plain and polite, neither stiff nor chatty",
         """Write in a plain, polite and matter-of-fact tone.
-Address the other person with "Sie". Add no extra warmth and no stiff formality: no flowery phrases, no small talk.
-Keep it short: the essential content. If there is a greeting and closing (only if the input has them, see the general rules), keep them brief, e.g. "Guten Tag" and "Freundliche Grüße".
-Use Austrian vocabulary where relevant, e.g. "Jänner" instead of "Januar".
+Use the target language's formal form of address (e.g. "Sie" in German). Add no extra warmth and no stiff formality: no flowery phrases, no small talk.
+Keep it short: the essential content. If there is a greeting and closing (only if the input has them, see the general rules), keep them brief (e.g. "Guten Tag" and "Freundliche Grüße").
+In German (Austria), use Austrian vocabulary where relevant, e.g. "Jänner" instead of "Januar".
 No emojis.
 Never invent names, dates, numbers or facts that are not in the input, and never output placeholders of any kind (no bracketed names, no ellipses standing in for missing text).""",
     ),
@@ -79,7 +115,7 @@ def seed(conn: sqlite3.Connection) -> None:
             return
         for label, description, prompt in _SEED_STYLES:
             _insert_style(conn, label, description, prompt, "anthropic", _SEED_MODEL, True)
-        _replace_languages(conn, [{"code": "de-AT", "name": "German (Austria)"}])
+        _replace_languages(conn, SEED_LANGUAGES)
         conn.execute("COMMIT")
     except Exception:
         conn.execute("ROLLBACK")

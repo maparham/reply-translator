@@ -53,7 +53,7 @@ def test_tweak_ids():
 def test_schema_strict_compatible():
     s = frame.OUTPUT_SCHEMA
     assert s["type"] == "object" and s["additionalProperties"] is False
-    assert s["required"] == ["received_gist", "message", "back_translation"]
+    assert s["required"] == ["user_language", "received_gist", "message", "back_translation"]
     assert set(s["properties"]) == set(s["required"])
     assert all(p["type"] == "string" and p["description"] for p in s["properties"].values())
 
@@ -71,7 +71,7 @@ def test_my_languages():
 def test_auto_my_language_follows_the_users_text():
     system, _ = frame.build_prompt("s", "German", frame.AUTO, "ich kann nicht", received="Hallo")
     assert "in Auto" not in system
-    assert system.count("the language the user wrote <what_i_want_to_say> in") >= 2
+    assert system.count("the user's language (user_language") >= 2
     named, _ = frame.build_prompt("s", "German", "Persian", "x")
     assert "in Persian" in named
 

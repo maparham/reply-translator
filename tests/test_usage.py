@@ -39,7 +39,7 @@ def test_no_cap(conn, settings):
 def test_summary_lists_unpriced(conn, settings):
     styles.seed(conn)
     usage.record(conn, settings, 1, "mystery", Usage(1, 1))
-    assert usage.summary(conn, settings)["unpriced_models"] == ["claude-sonnet-5-5", "mystery"]
+    assert usage.summary(conn, settings)["unpriced_models"] == ["claude-haiku-5-5", "mystery"]
 
 
 def test_summary_try_it_row(conn, settings):

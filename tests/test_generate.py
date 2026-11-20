@@ -8,7 +8,7 @@ def test_generate_reply_mode(anon_client, fake_gen):
     fake_gen.data = {"received_gist": "Landlord asks", "message": "Sehr geehrter…", "back_translation": "Dear…"}
     r = anon_client.post("/api/generate", json=body(received="Hallo", text="no"))
     assert r.status_code == 200 and r.json()["result"]["message"] == "Sehr geehrter…" and r.json()["history_id"] is None
-    assert "<received_message>" in fake_gen.calls[0]["user"] and fake_gen.calls[0]["model"] == "claude-sonnet-5-5"
+    assert "<received_message>" in fake_gen.calls[0]["user"] and fake_gen.calls[0]["model"] == "claude-haiku-5-5"
     assert "German (Austria)" in fake_gen.calls[0]["system"]
 
 
@@ -122,7 +122,7 @@ def test_signed_in_user_generate(user_client):
 
 def test_usage_recorded_when_provider_fails_after_billing(anon_client, fake_gen, conn, settings):
     # e.g. the model hit max_tokens: the provider charged for the tokens, so they must count toward the cap.
-    settings.set("prices", '{"claude-sonnet-5-5": {"in": 3, "out": 15}}')
+    settings.set("prices", '{"claude-haiku-5-5": {"in": 3, "out": 15}}')
     fake_gen.fail = "billed_error"
     r = anon_client.post("/api/generate", json=body())
     assert r.status_code == 502

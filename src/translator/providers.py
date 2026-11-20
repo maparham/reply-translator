@@ -92,6 +92,10 @@ async def _anthropic(api_key, model, system, user, schema, http) -> Generation:
     body = {"model": model, "max_tokens": MAX_OUTPUT_TOKENS, "system": system,
             "messages": [{"role": "user", "content": user}],
             "output_config": {"format": {"type": "json_schema", "schema": schema}}}
+    if model.startswith("claude-haiku"):
+        # Haiku thinks by default (measured: ~1,100 output tokens and ~6.5 s per reply); at low effort a reply takes
+        # ~1.5-3 s and ~70-200 tokens with the same wording quality.
+        body["output_config"]["effort"] = "low"
     headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01"}
     data = await _request("anthropic", http, "POST", f"{_base('anthropic')}/v1/messages", headers, body)
     used = _usage(data, "input_tokens", "output_tokens")

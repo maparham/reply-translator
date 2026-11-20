@@ -7,8 +7,8 @@ def test_seed(conn):
     styles.seed(conn)
     styles.seed(conn)
     assert [s.label for s in styles.list_styles(conn, True)] == ["Official", "Friendly", "Neutral"]
-    assert all(s.provider == "anthropic" and s.model == "claude-sonnet-5-5" for s in styles.list_styles(conn, True))
-    assert styles.list_languages(conn) == [{"code": "de-AT", "name": "German (Austria)"}]
+    assert all(s.provider == "anthropic" and s.model == "claude-haiku-5-5" for s in styles.list_styles(conn, True))
+    assert styles.list_languages(conn) == styles.SEED_LANGUAGES and styles.SEED_LANGUAGES[0]["code"] == "de-AT"
 
 
 def test_seed_skips_when_data_exists(conn):
