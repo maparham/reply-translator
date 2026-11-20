@@ -286,7 +286,9 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
         if not ok:
             raise HTTPException(403, "Verification failed")
         resp = JSONResponse({"ok": True})
-        set_cookie(resp, "anon")
+        # A Turnstile check can finish after a Clerk sign-in; never replace a signed-in session with an anonymous one.
+        if (current_session(request) or {}).get("kind") != "user":
+            set_cookie(resp, "anon")
         return resp
 
     @app.post("/api/login/clerk")

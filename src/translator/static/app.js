@@ -44,6 +44,7 @@ function waitForSession() {
 }
 function resetTurnstile() { if (S.widget !== null && window.turnstile) window.turnstile.reset(S.widget); }
 async function onTurnstileToken(token) {
+  if (S.user) return; // signed in meanwhile: the user session already covers this
   try {
     await rawApi("POST", "/api/session", { turnstile_token: token });
     S.sessionOk = true;

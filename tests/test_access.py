@@ -144,3 +144,11 @@ def test_csp_allows_clerk_bot_protection(client):
     csp = client.get("/health").headers["content-security-policy"]
     script_src = next(d for d in csp.split(";") if d.strip().startswith("script-src"))
     assert "https://cdn.protect.clerk.com" in script_src
+
+
+def test_turnstile_session_does_not_downgrade_signed_in_user(client):
+    # The Turnstile widget can finish after a Clerk sign-in; that must not replace the user session.
+    assert client.post("/api/login/clerk", json={"token": "admin"}).status_code == 200
+    assert client.post("/api/session", json={"turnstile_token": "t"}).status_code == 200
+    assert client.get("/api/config").json()["user"]["email"] == "admin@x.test"
+    assert client.get("/api/admin/settings").status_code == 200
