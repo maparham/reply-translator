@@ -42,13 +42,18 @@ function waitForSession() {
     }, 30000);
   });
 }
-function resetTurnstile() { if (S.widget !== null && window.turnstile) window.turnstile.reset(S.widget); }
+function resetTurnstile() {
+  if (S.widget === null || !window.turnstile) return;
+  $("#turnstile").hidden = !!S.user; // a fresh check may need a click, so show the box again
+  window.turnstile.reset(S.widget);
+}
 async function onTurnstileToken(token) {
   if (S.user) return; // signed in meanwhile: the user session already covers this
   try {
     await rawApi("POST", "/api/session", { turnstile_token: token });
     S.sessionOk = true;
     S.fails = 0;
+    setTimeout(() => { if (S.sessionOk) $("#turnstile").hidden = true; }, 1200); // let "Success!" show briefly
     S.waiters.splice(0).forEach((w) => w.resolve());
   } catch (e) {
     S.fails += 1;
