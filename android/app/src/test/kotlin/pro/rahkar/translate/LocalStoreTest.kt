@@ -61,4 +61,11 @@ class LocalStoreTest {
     assertEquals("Ukrainian", myLanguageFor("uk"))
     assertEquals("English", myLanguageFor("de-DE"))
   }
+
+  @Test fun speechLanguageAndAppend() {
+    assertEquals("fa-IR", speechTagFor("Persian"))
+    assertEquals(null, speechTagFor("Klingon"))
+    assertEquals("hello", appendDictation("", " hello "))
+    assertEquals("I can come. on Tuesday", appendDictation("I can come. ", "on Tuesday"))
+  }
 }

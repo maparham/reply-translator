@@ -328,6 +328,10 @@ function setupBoxButtons() {
   document.querySelectorAll(".boxbtn").forEach((btn) => {
     const box = document.getElementById(btn.dataset.for);
     const sync = () => {
+      if (box.classList.contains("compact") && !CSS.supports("field-sizing", "content")) {
+        box.style.height = "auto"; // grow with the text where CSS can't
+        box.style.height = Math.min(box.scrollHeight + 2, innerHeight * 0.5) + "px";
+      }
       const empty = !box.value;
       btn.textContent = empty ? "Paste" : "✕";
       btn.setAttribute("aria-label", empty ? "Paste" : "Clear");
@@ -345,10 +349,46 @@ function setupBoxButtons() {
   });
 }
 
+// ---------- voice typing (browsers with speech recognition: Chrome, Edge, Safari) ----------
+const SPEECH_TAGS = { English: "en-US", Arabic: "ar", Persian: "fa-IR", Dari: "fa-AF", Pashto: "ps-AF", Turkish: "tr-TR",
+  "Kurdish (Kurmanji)": "ku", Ukrainian: "uk-UA", Russian: "ru-RU", "Bosnian/Croatian/Serbian": "hr-HR", Albanian: "sq-AL",
+  Romanian: "ro-RO", Bulgarian: "bg-BG", Polish: "pl-PL", Czech: "cs-CZ", Slovak: "sk-SK", Hungarian: "hu-HU", Greek: "el-GR",
+  Spanish: "es-ES", French: "fr-FR", Italian: "it-IT", Portuguese: "pt-PT", Hindi: "hi-IN", Urdu: "ur-PK", Bengali: "bn-BD",
+  Chinese: "zh-CN", Vietnamese: "vi-VN", Tagalog: "fil-PH", Somali: "so-SO", Tigrinya: "ti-ET" };
+function setupVoice() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return; // the button stays hidden
+  const btn = $("#mic"), box = $("#text");
+  btn.hidden = false;
+  let rec = null;
+  btn.addEventListener("click", () => {
+    if (rec) { rec.stop(); return; }
+    rec = new SR();
+    rec.lang = SPEECH_TAGS[$("#mylang").value] || navigator.language || "en-US"; // speak in "My language"
+    rec.interimResults = false;
+    rec.onresult = (e) => {
+      const spoken = Array.from(e.results).map((r) => r[0].transcript).join(" ").trim();
+      if (!spoken) return;
+      box.value = (box.value.trim() ? box.value.trimEnd() + " " : "") + spoken;
+      box.syncBoxButton?.();
+    };
+    rec.onerror = (e) => {
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") showError("Allow microphone access to use voice typing.");
+      else if (e.error !== "no-speech" && e.error !== "aborted") showError("Voice typing didn't work, try again.");
+    };
+    rec.onend = () => { rec = null; btn.classList.remove("listening"); btn.setAttribute("aria-label", "Voice typing"); };
+    btn.classList.add("listening");
+    btn.setAttribute("aria-label", "Stop listening");
+    showError("");
+    rec.start();
+  });
+}
+
 // ---------- init ----------
 async function init() {
   $("#form").addEventListener("submit", (e) => { e.preventDefault(); run(null, $("#generate")); });
   setupBoxButtons();
+  setupVoice();
   try { S.cfg = await rawApi("GET", "/api/config"); }
   catch (e) { showNotice("Could not load the app. Please reload."); return; }
   S.user = S.cfg.user;

@@ -121,3 +121,11 @@ body.admin .who { max-width: 100%; }
 .boxbtn { position: absolute; top: 6px; right: 6px; border: 0; background: transparent; color: var(--accent);
   font: inherit; font-size: 14px; font-weight: 600; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
 .boxbtn:hover { background: rgba(0,0,0,.05); }
+.micbtn { position: absolute; top: 6px; right: 62px; border: 0; background: transparent; font-size: 17px;
+  padding: 4px 8px; border-radius: 8px; cursor: pointer; }
+.micbtn:hover { background: rgba(0,0,0,.05); }
+.micbtn.listening { background: #f8e4e0; animation: pulse 1s infinite alternate; }
+@keyframes pulse { to { background: #f1c7bf; } }
+.textbox:has(.micbtn:not([hidden])) textarea { padding-right: 100px; }
+/* The optional box is one line until it has text, then grows with it (field-sizing where supported). */
+textarea.compact { min-height: 46px; field-sizing: content; max-height: 50vh; }

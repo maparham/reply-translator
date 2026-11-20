@@ -26,16 +26,17 @@
   </p>
 
   <form id="form" method="post" autocomplete="off">
-    <label for="received">Message you received <span class="opt">optional</span></label>
-    <div class="textbox">
-      <textarea id="received" rows="4" maxlength="8000" placeholder="Paste what they wrote to you"></textarea>
-      <button type="button" class="boxbtn" data-for="received" aria-label="Paste">Paste</button>
-    </div>
-
     <label for="text">What you want to say <span class="opt">any language</span></label>
     <div class="textbox">
       <textarea id="text" rows="4" maxlength="8000" placeholder="e.g. say no, I can only do Tuesday" required></textarea>
       <button type="button" class="boxbtn" data-for="text" aria-label="Paste">Paste</button>
+      <button type="button" class="micbtn" id="mic" aria-label="Voice typing" title="Voice typing" hidden>🎤</button>
+    </div>
+
+    <label for="received">Message you received <span class="opt">optional</span></label>
+    <div class="textbox">
+      <textarea id="received" class="compact" rows="1" maxlength="8000" placeholder="Paste what they wrote to you"></textarea>
+      <button type="button" class="boxbtn" data-for="received" aria-label="Paste">Paste</button>
     </div>
 
     <div class="row">

@@ -64,3 +64,20 @@ private val LOCALE = mapOf(
 
 /** The phone's language as one of the server's "my language" names (the website's mapping). */
 fun myLanguageFor(languageTag: String): String = LOCALE[languageTag.lowercase().substringBefore('-').substringBefore('_')] ?: "English"
+
+private val SPEECH_TAGS = mapOf(
+  "English" to "en-US", "Arabic" to "ar", "Persian" to "fa-IR", "Dari" to "fa-AF", "Pashto" to "ps-AF",
+  "Turkish" to "tr-TR", "Kurdish (Kurmanji)" to "ku", "Ukrainian" to "uk-UA", "Russian" to "ru-RU",
+  "Bosnian/Croatian/Serbian" to "hr-HR", "Albanian" to "sq-AL", "Romanian" to "ro-RO", "Bulgarian" to "bg-BG",
+  "Polish" to "pl-PL", "Czech" to "cs-CZ", "Slovak" to "sk-SK", "Hungarian" to "hu-HU", "Greek" to "el-GR",
+  "Spanish" to "es-ES", "French" to "fr-FR", "Italian" to "it-IT", "Portuguese" to "pt-PT", "Hindi" to "hi-IN",
+  "Urdu" to "ur-PK", "Bengali" to "bn-BD", "Chinese" to "zh-CN", "Vietnamese" to "vi-VN", "Tagalog" to "fil-PH",
+  "Somali" to "so-SO", "Tigrinya" to "ti-ET",
+)
+
+/** Speech-recognition language for a "my language" name; null lets the phone use its own language. */
+fun speechTagFor(myLanguage: String): String? = SPEECH_TAGS[myLanguage]
+
+/** Adds dictated text to what is already in the box, with a space between. */
+fun appendDictation(current: String, spoken: String): String =
+  if (current.isBlank()) spoken.trim() else current.trimEnd() + " " + spoken.trim()

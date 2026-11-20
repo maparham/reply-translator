@@ -8,6 +8,9 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -144,8 +147,10 @@ fun MainScreen(vm: MainViewModel) {
         }
       }
 
-      InputField(vm.received, { vm.received = it }, "What they wrote (optional)", "Paste what they wrote to you")
-      InputField(vm.text, { vm.text = it }, "What you want to say", "e.g. say no, I can only do Tuesday")
+      InputField(vm.text, { vm.text = it }, "What you want to say (any language)", "e.g. say no, I can only do Tuesday",
+        voiceLanguage = vm.myLang)
+      // Optional, so it starts as one line and grows with what is pasted.
+      InputField(vm.received, { vm.received = it }, "What they wrote (optional)", "Paste what they wrote to you", minLines = 1)
 
       Picker("Style", cfg.styles.map { it.id to it.label }, vm.styleId) { vm.styleId = it; vm.savePrefs() }
       cfg.styles.firstOrNull { it.id == vm.styleId }?.description?.takeIf { it.isNotBlank() }?.let {
@@ -202,14 +207,38 @@ private fun clipboardText(ctx: Context): String? =
   ctx.getSystemService(ClipboardManager::class.java).primaryClip
     ?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(ctx)?.toString()?.takeIf { it.isNotBlank() }
 
-/** A text box with one button inside: Paste when it's empty, ✕ (clear) when it has text. */
+/**
+ * A text box with buttons inside: Paste when it's empty, ✕ (clear) when it has text, and with [voiceLanguage]
+ * a 🎤 that adds dictated text (the phone's speech input, listening in that language).
+ */
 @Composable
-private fun InputField(value: String, onChange: (String) -> Unit, label: String, placeholder: String) {
+private fun InputField(
+  value: String, onChange: (String) -> Unit, label: String, placeholder: String,
+  voiceLanguage: String? = null, minLines: Int = 3,
+) {
   val ctx = LocalContext.current
+  val currentValue by rememberUpdatedState(value)
+  val dictate = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+    val spoken = r.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+    if (r.resultCode == android.app.Activity.RESULT_OK && !spoken.isNullOrBlank()) {
+      onChange(appendDictation(currentValue, spoken).take(MAX_CHARS))
+    }
+  }
   OutlinedTextField(
-    value, { onChange(it.take(MAX_CHARS)) }, Modifier.fillMaxWidth(), minLines = 3,
+    value, { onChange(it.take(MAX_CHARS)) }, Modifier.fillMaxWidth(), minLines = minLines, maxLines = 12,
     label = { Text(label) }, placeholder = { Text(placeholder) },
-    trailingIcon = {
+    trailingIcon = { Row(verticalAlignment = Alignment.CenterVertically) {
+      if (voiceLanguage != null) {
+        IconButton(onClick = {
+          val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            .putExtra(RecognizerIntent.EXTRA_PROMPT, "Say what you want to answer")
+          speechTagFor(voiceLanguage)?.let { intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, it) }
+          try { dictate.launch(intent) } catch (_: ActivityNotFoundException) {
+            Toast.makeText(ctx, "Voice typing isn't available on this phone", Toast.LENGTH_SHORT).show()
+          }
+        }) { Text("🎤", style = MaterialTheme.typography.titleMedium) }
+      }
       if (value.isEmpty()) {
         TextButton(onClick = {
           val t = clipboardText(ctx)
@@ -219,7 +248,7 @@ private fun InputField(value: String, onChange: (String) -> Unit, label: String,
       } else {
         IconButton(onClick = { onChange("") }) { Text("✕", style = MaterialTheme.typography.titleMedium) }
       }
-    },
+    } },
   )
 }
 
