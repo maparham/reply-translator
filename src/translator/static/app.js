@@ -192,7 +192,6 @@ function showResult(r) {
   $("#message").lang = ($("#lang").value || "de").split("-")[0];
   $("#back").textContent = `“${r.back_translation}”`;
   $("#whatsapp").href = "https://wa.me/?text=" + encodeURIComponent(r.message);
-  $("#copy").textContent = "Copy";
   const box = $("#result");
   const wasHidden = box.hidden;
   box.hidden = false;
@@ -205,6 +204,15 @@ async function copyText(text, button) {
   catch {
     const t = document.createElement("textarea"); t.value = text; document.body.append(t); t.select();
     try { ok = document.execCommand("copy"); } catch { ok = false; } finally { t.remove(); }
+  }
+  if (button.classList.contains("icon")) { // icon button: a check mark for a moment
+    if (!ok) { showError("Couldn't copy, select the text"); return; }
+    button.dataset.icon ??= button.innerHTML;
+    button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>';
+    button.classList.add("done"); button.title = "Copied";
+    clearTimeout(button.copyTimer);
+    button.copyTimer = setTimeout(() => { button.innerHTML = button.dataset.icon; button.classList.remove("done"); button.title = "Copy"; }, 1800);
+    return;
   }
   const old = button.dataset.label || button.textContent;
   button.dataset.label = old;
@@ -400,6 +408,10 @@ async function init() {
   $("#lang").addEventListener("change", savePrefs);
   $("#mylang").addEventListener("change", savePrefs);
   $("#copy").addEventListener("click", () => copyText(S.last.result.message, $("#copy")));
+  if (navigator.share) { // phones: the system share sheet (Signal, Telegram, mail…)
+    $("#share").hidden = false;
+    $("#share").addEventListener("click", () => navigator.share({ text: S.last.result.message }).catch(() => {}));
+  }
   $("#signin").addEventListener("click", () => { if (S.clerk) S.clerk.openSignIn(); else showError("Sign-in is still loading, try again in a moment."); });
   $("#signout").addEventListener("click", signOut);
   $("#import-yes").addEventListener("click", importLocal);

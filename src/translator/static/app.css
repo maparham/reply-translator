@@ -55,8 +55,14 @@ button:disabled { opacity: .55; cursor: default; }
 .message { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--accent);
   border-radius: 10px; padding: 18px; font: 18px/1.6 Georgia, "Times New Roman", serif; white-space: pre-wrap;
   overflow-wrap: anywhere; box-shadow: 0 1px 0 rgba(0,0,0,.03); }
-.actions { display: flex; gap: 10px; margin-top: 12px; }
-.actions .primary { flex: 1; }
+.actions { display: flex; gap: 6px; margin-top: 10px; justify-content: flex-end; }
+.icon { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 50%;
+  border: 1px solid var(--line, #ddd6c8); background: var(--card); color: var(--accent); padding: 0; }
+.icon svg { width: 21px; height: 21px; fill: currentColor; }
+.icon:hover { background: #efe9dc; }
+.icon:disabled { opacity: .4; }
+.icon.wa { color: #1e9e52; }
+.icon.done { color: #fff; background: var(--accent); border-color: var(--accent); }
 .means { margin: 16px 2px 0; color: var(--muted); font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .means-label { text-transform: uppercase; font-size: 11px; letter-spacing: .08em; font-weight: 700; margin-right: 6px; }
 .tweaks { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }

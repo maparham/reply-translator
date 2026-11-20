@@ -81,16 +81,30 @@ private fun copy(ctx: Context, text: String) {
   ctx.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Reply", text))
 }
 
-/** Copy button that reads "Copied ✓" for a moment after a tap, on every Android version. */
+/** Copy button that shows "Copied ✓" (or a check mark, as an icon) for a moment after a tap, on every Android version. */
 @Composable
-private fun CopyButton(text: String, filled: Boolean, enabled: Boolean = true) {
+private fun CopyButton(text: String, icon: Boolean, enabled: Boolean = true) {
   val ctx = LocalContext.current
   var copiedAt by remember { mutableStateOf(0L) }
   LaunchedEffect(copiedAt) { if (copiedAt != 0L) { kotlinx.coroutines.delay(1800); copiedAt = 0L } }
-  val label = if (copiedAt != 0L) "Copied ✓" else "Copy"
+  val copied = copiedAt != 0L
   val onClick = { copy(ctx, text); copiedAt = System.currentTimeMillis() }
-  if (filled) Button(onClick = onClick, enabled = enabled) { Text(label) }
-  else TextButton(onClick = onClick, enabled = enabled) { Text(label) }
+  if (icon) ActionIcon(if (copied) R.drawable.ic_check else R.drawable.ic_copy, if (copied) "Copied" else "Copy",
+    enabled = enabled, highlighted = copied, onClick = onClick)
+  else TextButton(onClick = onClick, enabled = enabled) { Text(if (copied) "Copied ✓" else "Copy") }
+}
+
+/** A round outlined icon button for the reply's actions. */
+@Composable
+private fun ActionIcon(
+  res: Int, description: String, enabled: Boolean = true, highlighted: Boolean = false,
+  tint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary, onClick: () -> Unit,
+) {
+  if (highlighted) FilledIconButton(onClick = onClick, enabled = enabled) {
+    Icon(androidx.compose.ui.res.painterResource(res), contentDescription = description)
+  } else OutlinedIconButton(onClick = onClick, enabled = enabled) {
+    Icon(androidx.compose.ui.res.painterResource(res), contentDescription = description, tint = tint)
+  }
 }
 
 private fun sendToWhatsApp(ctx: Context, text: String) {
@@ -193,10 +207,12 @@ fun MainScreen(vm: MainViewModel) {
           Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (r.receivedGist.isNotBlank()) Text(buildString { append("They wrote: "); append(r.receivedGist) }, style = MaterialTheme.typography.bodyMedium)
             SelectionContainer { Text(r.message, style = MaterialTheme.typography.bodyLarge) }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-              CopyButton(r.message, filled = true, enabled = vm.busy == null)
-              OutlinedButton(onClick = { sendToWhatsApp(ctx, r.message) }) { Text("WhatsApp") }
-              OutlinedButton(onClick = { share(ctx, r.message) }) { Text("Share") }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End)) {
+              CopyButton(r.message, icon = true, enabled = vm.busy == null)
+              ActionIcon(R.drawable.ic_whatsapp, "Send with WhatsApp", tint = androidx.compose.ui.graphics.Color(0xFF1E9E52)) {
+                sendToWhatsApp(ctx, r.message)
+              }
+              ActionIcon(R.drawable.ic_share, "Share") { share(ctx, r.message) }
             }
             Text("Means: “${r.backTranslation}”", style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic,
               color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -324,7 +340,7 @@ private fun HistorySection(vm: MainViewModel, ctx: Context) {
           color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(item.output.message.replace(Regex("\\s+"), " "), maxLines = 2, overflow = TextOverflow.Ellipsis)
         Row {
-          CopyButton(item.output.message, filled = false)
+          CopyButton(item.output.message, icon = false)
           TextButton(onClick = { vm.delete(item.id) }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
         }
       }
