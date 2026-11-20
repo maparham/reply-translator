@@ -147,7 +147,7 @@ fun MainScreen(vm: MainViewModel) {
         }
       }
 
-      InputField(vm.text, { vm.text = it }, "What you want to say (any language)", "e.g. say no, I can only do Tuesday",
+      InputField(vm.text, { vm.text = it }, "What you want to say", "Any language, e.g. say no, I can only do Tuesday",
         voiceLanguage = vm.myLang)
       // Optional, so it starts as one line and grows with what is pasted.
       InputField(vm.received, { vm.received = it }, "What they wrote (optional)", "Paste what they wrote to you", minLines = 1)
