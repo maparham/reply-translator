@@ -255,7 +255,10 @@ function historyRow(item) {
   const open = document.createElement("button"); open.type = "button"; open.className = "hopen";
   const meta = document.createElement("span"); meta.className = "meta";
   const lang = S.cfg.languages.find((l) => l.code === item.language_code)?.name || item.language_code;
-  meta.textContent = `${item.style_label} · ${lang} · ${new Date(item.updated_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}`;
+  const what = document.createElement("span"); what.textContent = `${item.style_label}, ${lang}`;
+  const when = document.createElement("span");
+  when.textContent = new Date(item.updated_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+  meta.append(what, when);
   const snip = document.createElement("span"); snip.className = "snip"; snip.textContent = item.output.message.replace(/\s+/g, " ");
   open.append(meta, snip);
   open.addEventListener("click", () => loadItem(item));
