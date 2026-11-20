@@ -133,4 +133,4 @@ def test_usage_recorded_when_provider_fails_after_billing(anon_client, fake_gen,
 def test_auto_my_language_accepted(user_client, fake_gen):
     from helpers import body
     assert user_client.post("/api/generate", json=body(my_language="Auto")).status_code == 200
-    assert "<what_i_want_to_say> in" in fake_gen.calls[-1]["system"]
+    assert "in user_language" in fake_gen.calls[-1]["system"]

@@ -104,7 +104,7 @@ def test_delete_all(user_client):
 def test_deleted_style_history_still_lists(user_client, conn):
     user_client.post("/api/generate", json=body())
     styles.delete_style(conn, 1)
-    assert user_client.get("/api/history").json()[0]["style_label"] == "Official"
+    assert user_client.get("/api/history").json()[0]["style_label"] == "🧐 Official"
 
 
 def _max_item():
@@ -148,6 +148,6 @@ def test_import_bad_date_skips_item_not_batch(user_client):
 
 def test_tweak_updates_style_and_language_label(user_client, fake_gen, conn):
     hid = user_client.post("/api/generate", json=body()).json()["history_id"]
-    friendly = conn.execute("select id from styles where label='Friendly'").fetchone()[0]
+    friendly = conn.execute("select id from styles where label='😊 Friendly'").fetchone()[0]
     user_client.post("/api/tweak", json=body(tweak="shorter", history_id=hid, previous=PREV, style_id=friendly))
-    assert user_client.get("/api/history").json()[0]["style_label"] == "Friendly"
+    assert user_client.get("/api/history").json()[0]["style_label"] == "😊 Friendly"

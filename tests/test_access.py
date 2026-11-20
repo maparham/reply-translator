@@ -13,7 +13,7 @@ def test_session_requires_valid_turnstile(client_factory):
 
 def test_config_lists_seeded(client):
     j = client.get("/api/config").json()
-    assert [s["label"] for s in j["styles"]] == ["Official", "Friendly", "Neutral"]
+    assert [s["label"] for s in j["styles"]] == ["🧐 Official", "😊 Friendly", "😐 Neutral", "😉 Flirty", "😏 Dirty"]
     assert [t["id"] for t in j["tweaks"]] == ["shorter", "more_polite", "firmer", "less_formal"]
     assert j["open"] is True and j["user"] is None
 

@@ -60,7 +60,7 @@ SEED_LANGUAGES = [
 
 _SEED_STYLES = [
     (
-        "Official",
+        "🧐 Official",
         "Formal and polite, for authorities, landlords, schools and doctors",
         """Write in a formal, courteous register suitable for authorities, landlords, schools, doctors and other official contacts.
 Use the target language's formal form of address throughout (e.g. "Sie" in German, "vous" in French, "usted" in Spanish), in complete, well-structured sentences. Be polite and clear; state the request or answer directly without sounding cold.
@@ -70,7 +70,7 @@ No slang, no colloquial contractions (in German not "gibt's", "hab'", "ham"), no
 Never invent names, dates, numbers or facts that are not in the input, and never output placeholders of any kind (no bracketed names, no ellipses standing in for missing text, no slash forms for titles).""",
     ),
     (
-        "Friendly",
+        "😊 Friendly",
         "Warm and casual, like a chat message",
         """Write in a warm, natural tone, like a friendly chat message.
 Use the target language's informal form of address by default (e.g. "du" in German, "tu" in French), but use the formal form if the received message uses it. If there is a greeting (only if the input has one, see the general rules): with the formal form use a polite greeting (in German (Austria) "Guten Tag" or "Grüß Gott", never "Servus" or "Hallo"); keep very casual greetings such as "Servus" for people the user clearly knows well.
@@ -80,7 +80,7 @@ At most one emoji, and only where it truly fits.
 Never invent names, dates, numbers or facts that are not in the input, and never output placeholders of any kind (no bracketed names, no ellipses standing in for missing text).""",
     ),
     (
-        "Neutral",
+        "😐 Neutral",
         "Plain and polite, neither stiff nor chatty",
         """Write in a plain, polite and matter-of-fact tone.
 Use the target language's formal form of address (e.g. "Sie" in German). Add no extra warmth and no stiff formality: no flowery phrases, no small talk.
@@ -88,6 +88,26 @@ Keep it short: the essential content. If there is a greeting and closing (only i
 In German (Austria), use Austrian vocabulary where relevant, e.g. "Jänner" instead of "Januar".
 No emojis.
 Never invent names, dates, numbers or facts that are not in the input, and never output placeholders of any kind (no bracketed names, no ellipses standing in for missing text).""",
+    ),
+    (
+        "😉 Flirty",
+        "Playful and charming, for someone you like",
+        """Write in a playful, charming, lightly flirtatious tone, as a message to someone the user likes or is dating.
+Use the target language's informal form of address (e.g. "du" in German, "tu" in French), unless the received message clearly uses the formal form.
+Express the user's content with warmth and a teasing wink in the wording: affectionate phrasing, a light compliment only if the user's text implies one, gentle humour. Stay tasteful, never crude, never pushy.
+Keep it short and natural, like a real chat message. If there is a sign-off, use a warm, affectionate one.
+At most one or two fitting emojis (e.g. 😉 or 😘).
+Never invent names, dates, numbers, plans or facts that are not in the input, and never output placeholders of any kind.""",
+    ),
+    (
+        "😏 Dirty",
+        "Cheeky and suggestive, for a partner",
+        """Write in a cheeky, naughty, suggestive tone, as a message between consenting adult partners.
+Use the target language's informal form of address (e.g. "du" in German).
+Express the user's content with innuendo, teasing and desire in the wording. Match how explicit the user's own text is: if they are suggestive, be suggestive; if they are explicit, you may be explicit too, using natural, idiomatic words a native speaker would text, not clinical or stilted ones. Do not escalate beyond what the user wrote.
+Keep it short and natural, like a real chat message.
+At most one or two fitting emojis (e.g. 😏 or 🔥).
+Never invent names, dates, numbers, plans or facts that are not in the input, and never output placeholders of any kind.""",
     ),
 ]
 

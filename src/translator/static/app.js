@@ -164,7 +164,7 @@ async function run(tweak, button) {
   showError("");
   const inputs = tweak && S.last ? S.last.inputs : snapshot();
   if (!tweak) savePrefs();
-  const save = !$("#nosave").checked;
+  const save = $("#save").checked;
   const body = { ...inputs, save, history_id: tweak ? S.histId : null };
   if (tweak) { body.tweak = tweak; body.previous = S.last.result; }
   setBusy(true, button);
@@ -275,7 +275,7 @@ function loadItem(item) {
   $("#received").value = item.inputs.received || "";
   $("#text").value = item.inputs.text || "";
   ["#received", "#text"].forEach((id) => $(id).syncBoxButton?.());
-  const style = S.cfg.styles.find((s) => s.label === item.style_label);
+  const style = S.cfg.styles.find((s) => s.label === item.style_label || s.label.endsWith(` ${item.style_label}`));
   if (style) $("#style").value = String(style.id);
   if ([...$("#lang").options].some((o) => o.value === item.language_code)) $("#lang").value = item.language_code;
   if ([...$("#mylang").options].some((o) => o.value === item.inputs.my_language)) $("#mylang").value = item.inputs.my_language;

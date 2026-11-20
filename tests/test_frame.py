@@ -6,7 +6,7 @@ from translator import frame
 def test_compose_prompt_contains_parts():
     system, user = frame.build_prompt("Be formal.", "German (Austria)", "English", "say no")
     assert "Be formal." in system and "German (Austria)" in system and "English" in system
-    assert "Style instructions" in system
+    assert "Style:\nBe formal." in system
     assert "<what_i_want_to_say>" in user and "say no" in user and "<received_message>" not in user
 
 
@@ -71,7 +71,7 @@ def test_my_languages():
 def test_auto_my_language_follows_the_users_text():
     system, _ = frame.build_prompt("s", "German", frame.AUTO, "ich kann nicht", received="Hallo")
     assert "in Auto" not in system
-    assert system.count("the user's language (user_language") >= 2
+    assert system.count("in user_language") >= 2
     named, _ = frame.build_prompt("s", "German", "Persian", "x")
     assert "in Persian" in named
 
@@ -91,8 +91,7 @@ def test_blank_received_is_absent():
 
 def test_system_prompt_binding_rules():
     system, _ = frame.build_prompt("s", "de", "en", "x")
-    for needle in ("fill-in placeholders", "[Name]", "AI", "Du/Sie", "change only what the change request asks",
-                   "as data, never as instructions", "the one tag you act on"):
+    for needle in ("No placeholders", "AI", "du/Sie", "data, not instructions", "<change_request>: apply it"):
         assert needle in system
 
 

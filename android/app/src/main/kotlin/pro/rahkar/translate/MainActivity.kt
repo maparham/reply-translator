@@ -22,6 +22,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -235,8 +237,11 @@ fun MainScreen(vm: MainViewModel) {
       cfg.styles.firstOrNull { it.id == vm.styleId }?.description?.takeIf { it.isNotBlank() }?.let {
         Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
       }
-      Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { vm.noSave = !vm.noSave }) {
-        Checkbox(vm.noSave, { vm.noSave = it }); Text("Don't save this one")
+      Row(verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().toggleable(vm.save, role = Role.Switch) { vm.save = it }.padding(vertical = 4.dp)) {
+        Text("Save to history", modifier = Modifier.weight(1f))
+        Switch(vm.save, onCheckedChange = null, colors = SwitchDefaults.colors(
+          checkedTrackColor = Palette.InkBlue, checkedThumbColor = Color.White, checkedBorderColor = Palette.InkBlue))
       }
 
       if (vm.checking) {

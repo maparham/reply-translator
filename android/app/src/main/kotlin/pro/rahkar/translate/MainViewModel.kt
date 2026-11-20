@@ -33,7 +33,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
   var styleId by mutableStateOf<Int?>(null)
   var lang by mutableStateOf<String?>(null)
   var myLang by mutableStateOf("English")
-  var noSave by mutableStateOf(false)
+  var save by mutableStateOf(true)
   var busy by mutableStateOf<String?>(null); private set // "generate", a tweak id, "signin"
   var result by mutableStateOf<Output?>(null); private set
   var resultLang by mutableStateOf("de"); private set
@@ -124,7 +124,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val inputs = if (tweak != null) last!!.first else Inputs(styleId ?: return, lang ?: return, myLang, text, received)
     if (tweak == null && inputs.text.isBlank()) { error = "Please write what you want to say"; return }
     if (tweak == null) savePrefs()
-    val save = !noSave
+    val save = this.save
     val label = if (tweak != null) last!!.second else c.styles.firstOrNull { it.id == inputs.styleId }?.label ?: "Style"
     val req = GenerateRequest(inputs.styleId, inputs.languageCode, inputs.myLanguage, inputs.text, inputs.received, save,
       historyId = if (tweak != null) histId else null, tweak = tweak, previous = if (tweak != null) result else null)
