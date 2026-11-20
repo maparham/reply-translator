@@ -41,7 +41,7 @@ project directory (`~/translator`), compose project (`translator`), volume (`tra
    ```
    It rsyncs the source to `~/translator/`, builds `translator:manual-<time>` on the box, writes `.env`
    (`TRANSLATOR_TAG`), runs `docker compose up -d --no-build`, and waits up to 30 s for
-   `http://127.0.0.1:18490/health`. Rerun it for every update; the volume and `translator.env` are kept.
+   `http://127.0.0.1:18490/health`. If it doesn't answer, the script starts the previous tag again and exits with an error. Rerun it for every update; the volume and `translator.env` are kept.
 7. Open `https://translate.rahkar.pro`, sign in with an `ADMIN_EMAILS` address, and at `/admin` set the Anthropic /
    OpenAI keys, the Turnstile site and secret keys, and the daily cap. Until Turnstile keys are set, the app
    answers 503 to anonymous generate requests.
@@ -65,7 +65,8 @@ run `docker` without sudo, because the forced command calls it directly. Check w
 
 One-time setup:
 
-1. On your Mac make the age key pair and keep `translator-age.key` in your password manager (`brew install age`):
+1. On your Mac make the age key pair **outside this repo** (e.g. in `~`) and keep `translator-age.key` in your
+   password manager (`brew install age`). `update.sh` also skips `*.key` and `*.age` files, but don't rely on that:
    ```sh
    age-keygen -o translator-age.key      # prints the public key (age1...)
    ```

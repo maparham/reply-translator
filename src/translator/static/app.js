@@ -1,7 +1,7 @@
 "use strict";
 const $ = (s) => document.querySelector(s);
 const S = { cfg: null, user: null, sessionOk: false, widget: null, waiters: [], busy: false,
-  last: null, histId: null, fails: 0, clerk: null, exchanging: false };
+  last: null, histId: null, fails: 0, clerk: null, exchanging: false, sessionPost: null };
 
 // ---------- storage ----------
 const store = {
@@ -48,9 +48,11 @@ function resetTurnstile() {
   window.turnstile.reset(S.widget);
 }
 async function onTurnstileToken(token) {
-  if (S.user) return; // signed in meanwhile: the user session already covers this
+  if (S.user || S.exchanging) return; // signing in: the user session will cover this
   try {
-    await rawApi("POST", "/api/session", { turnstile_token: token });
+    // Remembered so a sign-in can wait for it: its anonymous cookie must not land after the user cookie.
+    S.sessionPost = rawApi("POST", "/api/session", { turnstile_token: token });
+    await S.sessionPost;
     S.sessionOk = true;
     S.fails = 0;
     setTimeout(() => { if (S.sessionOk) $("#turnstile").hidden = true; }, 1200); // let "Success!" show briefly
@@ -84,8 +86,10 @@ async function clerkExchange() {
   if (S.exchanging) return;
   S.exchanging = true;
   try {
+    if (S.sessionPost) await S.sessionPost.catch(() => {});
     S.user = await clerkExchangeToken(S.clerk);
     S.cfg.user = S.user;
+    S.waiters.splice(0).forEach((w) => w.resolve()); // requests waiting for a check can go ahead as this user
     renderAccount();
     offerImport();
     await renderHistory();
@@ -144,7 +148,8 @@ function showNotice(msg) { const e = $("#notice"); e.textContent = msg; e.hidden
 function setBusy(on, button) {
   S.busy = on;
   const all = [$("#generate"), ...document.querySelectorAll("#tweaks button"), $("#copy")];
-  all.forEach((b) => { b.disabled = on || (b.id === "generate" && !(S.cfg.open && S.cfg.styles.length)); b.classList.remove("busy"); });
+  const usable = S.cfg.open && S.cfg.styles.length && S.cfg.languages.length;
+  all.forEach((b) => { b.disabled = on || (b.id === "generate" && !usable); b.classList.remove("busy"); });
   if (on && button) button.classList.add("busy");
 }
 
@@ -162,13 +167,14 @@ async function run(tweak, button) {
   const body = { ...inputs, save, history_id: tweak ? S.histId : null };
   if (tweak) { body.tweak = tweak; body.previous = S.last.result; }
   setBusy(true, button);
+  const asUser = !!S.user; // if they sign in while this runs, the server still treated it as anonymous
   try {
     const res = await api("POST", tweak ? "/api/tweak" : "/api/generate", body);
     if (!tweak) S.histId = null;
     S.last = { inputs, result: res.result, styleLabel: styleLabel(inputs.style_id) };
     showResult(res.result);
     if (save) {
-      if (S.user) S.histId = res.history_id;
+      if (asUser && res.history_id) S.histId = res.history_id;
       else S.histId = saveLocal(S.histId, S.last);
       await renderHistory();
     }

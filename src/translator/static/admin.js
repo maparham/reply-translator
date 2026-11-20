@@ -231,6 +231,10 @@ function renderSpending() {
     ...Object.entries(S.settings.prices).map(([m, p]) => priceRow(m, p)));
 }
 async function saveSpending() {
+  // A number field the browser can't parse (e.g. "2,50" in an English locale) reads as "", which would mean "no cap".
+  if ([...document.querySelectorAll("#cap, #prices input")].some((i) => i.validity?.badInput)) {
+    showError("A number isn't valid, use a dot for decimals (e.g. 2.50)."); return;
+  }
   const capRaw = $("#cap").value.trim();
   const prices = {};
   for (const r of document.querySelectorAll("#prices .prow")) {
