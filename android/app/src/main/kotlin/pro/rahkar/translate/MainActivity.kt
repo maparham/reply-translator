@@ -78,9 +78,19 @@ fun AppTheme(content: @Composable () -> Unit) {
 }
 
 private fun copy(ctx: Context, text: String) {
-  val cm = ctx.getSystemService(ClipboardManager::class.java)
-  cm.setPrimaryClip(ClipData.newPlainText("Reply", text))
-  if (android.os.Build.VERSION.SDK_INT < 33) Toast.makeText(ctx, "Copied", Toast.LENGTH_SHORT).show()
+  ctx.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Reply", text))
+}
+
+/** Copy button that reads "Copied ✓" for a moment after a tap, on every Android version. */
+@Composable
+private fun CopyButton(text: String, filled: Boolean, enabled: Boolean = true) {
+  val ctx = LocalContext.current
+  var copiedAt by remember { mutableStateOf(0L) }
+  LaunchedEffect(copiedAt) { if (copiedAt != 0L) { kotlinx.coroutines.delay(1800); copiedAt = 0L } }
+  val label = if (copiedAt != 0L) "Copied ✓" else "Copy"
+  val onClick = { copy(ctx, text); copiedAt = System.currentTimeMillis() }
+  if (filled) Button(onClick = onClick, enabled = enabled) { Text(label) }
+  else TextButton(onClick = onClick, enabled = enabled) { Text(label) }
 }
 
 private fun sendToWhatsApp(ctx: Context, text: String) {
@@ -184,7 +194,7 @@ fun MainScreen(vm: MainViewModel) {
             if (r.receivedGist.isNotBlank()) Text(buildString { append("They wrote: "); append(r.receivedGist) }, style = MaterialTheme.typography.bodyMedium)
             SelectionContainer { Text(r.message, style = MaterialTheme.typography.bodyLarge) }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-              Button(onClick = { copy(ctx, r.message) }, enabled = vm.busy == null) { Text("Copy") }
+              CopyButton(r.message, filled = true, enabled = vm.busy == null)
               OutlinedButton(onClick = { sendToWhatsApp(ctx, r.message) }) { Text("WhatsApp") }
               OutlinedButton(onClick = { share(ctx, r.message) }) { Text("Share") }
             }
@@ -314,7 +324,7 @@ private fun HistorySection(vm: MainViewModel, ctx: Context) {
           color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(item.output.message.replace(Regex("\\s+"), " "), maxLines = 2, overflow = TextOverflow.Ellipsis)
         Row {
-          TextButton(onClick = { copy(ctx, item.output.message) }) { Text("Copy") }
+          CopyButton(item.output.message, filled = false)
           TextButton(onClick = { vm.delete(item.id) }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
         }
       }
