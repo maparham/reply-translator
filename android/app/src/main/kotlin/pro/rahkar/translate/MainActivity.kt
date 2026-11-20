@@ -151,7 +151,6 @@ fun MainScreen(vm: MainViewModel) {
       }
 
       if (vm.checking) {
-        if (vm.checkInteractive) Text("Quick check that you're not a bot:", style = MaterialTheme.typography.bodySmall)
         TurnstileView(vm.baseUrl, vm.checkInteractive, vm::onTurnstileToken, vm::onTurnstileError, vm::onTurnstileInteractive)
       }
 
