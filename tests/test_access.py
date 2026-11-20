@@ -152,3 +152,17 @@ def test_turnstile_session_does_not_downgrade_signed_in_user(client):
     assert client.post("/api/session", json={"turnstile_token": "t"}).status_code == 200
     assert client.get("/api/config").json()["user"]["email"] == "admin@x.test"
     assert client.get("/api/admin/settings").status_code == 200
+
+
+def test_pages_reference_versioned_assets(client):
+    # Cloudflare caches /static/* at the edge; a content hash in the URL makes each deploy fetch fresh files.
+    import hashlib, re
+    from translator.app import STATIC
+    for path in ("/", "/admin"):
+        r = client.get(path)
+        assert r.headers["cache-control"] == "no-cache"
+        refs = re.findall(r'/static/([\w.]+)\?v=(\w+)"', r.text)
+        assert {"app.css", "common.js"} <= {name for name, _ in refs}
+        for name, v in refs:
+            assert v == hashlib.sha256((STATIC / name).read_bytes()).hexdigest()[:12]
+        assert not re.search(r'/static/[\w.]+"', r.text)  # nothing left unversioned

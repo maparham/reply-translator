@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import math
+import re
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -11,7 +13,7 @@ from urllib.parse import urlsplit
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, StrictBool, StrictInt, StrictStr
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -25,6 +27,16 @@ from .crypto import Crypto
 from .settings import Settings
 
 STATIC = Path(__file__).parent / "static"
+
+
+def _versioned_page(name: str) -> str:
+    """The HTML page with each /static/<file> reference tagged ?v=<content hash>.
+
+    Cloudflare caches /static/* at the edge, so an unchanged URL would keep serving the old file after a deploy."""
+    def tag(m: re.Match) -> str:
+        digest = hashlib.sha256((STATIC / m.group(1)).read_bytes()).hexdigest()[:12]
+        return f'/static/{m.group(1)}?v={digest}"'
+    return re.sub(r'/static/([\w.]+)"', tag, (STATIC / name).read_text())
 MAX_CHARS = 8000
 
 
@@ -249,13 +261,15 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
     def health():
         return {"ok": True}
 
+    pages = {name: _versioned_page(name) for name in ("index.html", "admin.html")}
+
     @app.get("/")
     def index():
-        return FileResponse(STATIC / "index.html")
+        return HTMLResponse(pages["index.html"], headers={"Cache-Control": "no-cache"})
 
     @app.get("/admin")
     def admin_page():
-        return FileResponse(STATIC / "admin.html")
+        return HTMLResponse(pages["admin.html"], headers={"Cache-Control": "no-cache"})
 
     @app.get("/api/config")
     def config(request: Request):
