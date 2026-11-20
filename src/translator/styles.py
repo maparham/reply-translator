@@ -28,7 +28,7 @@ _SEED_STYLES = [
         "Formal and polite, for authorities, landlords, schools and doctors",
         """Write in a formal, courteous register suitable for authorities, landlords, schools, doctors and other official contacts in Austria.
 Address the other person with "Sie" throughout, in complete, well-structured sentences. Be polite and clear; state the request or answer directly without sounding cold.
-Greet with the recipient's exact name and title when the received message gives one (e.g. "Sehr geehrte Frau Mag. Huber"); otherwise use "Sehr geehrte Damen und Herren". Close with "Mit freundlichen Grüßen".
+When the message has a greeting and closing (only if the input has them, see the general rules): greet with the recipient's exact name and title when the received message gives one (e.g. "Sehr geehrte Frau Mag. Huber"), otherwise "Sehr geehrte Damen und Herren", and close with "Mit freundlichen Grüßen".
 Use standard Austrian vocabulary where it fits, e.g. "Jänner" instead of "Januar", "Termin" for appointments; use "Ordination" only when writing to a doctor's practice.
 No slang, no colloquial contractions (not "gibt's", "hab'", "ham"), no emojis.
 Never invent names, dates, numbers or facts that are not in the input, and never output placeholders of any kind (no bracketed names, no ellipses standing in for missing text, no slash forms for titles).""",
@@ -37,9 +37,8 @@ Never invent names, dates, numbers or facts that are not in the input, and never
         "Friendly",
         "Warm and casual, like a chat message",
         """Write in a warm, natural tone, like a friendly WhatsApp message in Austria.
-Use "du" by default, but use "Sie" if the received message uses "Sie". When using "Sie", greet with "Guten Tag" or "Grüß Gott", never "Servus" or "Hallo"; keep "Servus" for people the user clearly knows well.
-Keep sentences short and conversational; light colloquial phrasing is fine, but nothing sloppy or rude. Close with "Liebe Grüße".
-The greeting is optional when the received message is clearly part of a short back-and-forth chat; then just answer.
+Use "du" by default, but use "Sie" if the received message uses "Sie". If there is a greeting (only if the input has one, see the general rules): with "Sie" use "Guten Tag" or "Grüß Gott", never "Servus" or "Hallo"; keep "Servus" for people the user clearly knows well.
+Keep sentences short and conversational; light colloquial phrasing is fine, but nothing sloppy or rude. If there is a sign-off, use "Liebe Grüße".
 Use Austrian vocabulary where it fits, e.g. "Jänner" instead of "Januar", "passt" for agreement.
 At most one emoji, and only where it truly fits.
 Never invent names, dates, numbers or facts that are not in the input, and never output placeholders of any kind (no bracketed names, no ellipses standing in for missing text).""",
@@ -49,7 +48,7 @@ Never invent names, dates, numbers or facts that are not in the input, and never
         "Plain and polite, neither stiff nor chatty",
         """Write in a plain, polite and matter-of-fact tone.
 Address the other person with "Sie". Add no extra warmth and no stiff formality: no flowery phrases, no small talk.
-Keep it short: a brief greeting such as "Guten Tag" or another time-appropriate greeting, the essential content, and a short closing such as "Freundliche Grüße".
+Keep it short: the essential content. If there is a greeting and closing (only if the input has them, see the general rules), keep them brief, e.g. "Guten Tag" and "Freundliche Grüße".
 Use Austrian vocabulary where relevant, e.g. "Jänner" instead of "Januar".
 No emojis.
 Never invent names, dates, numbers or facts that are not in the input, and never output placeholders of any kind (no bracketed names, no ellipses standing in for missing text).""",
