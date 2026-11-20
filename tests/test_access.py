@@ -138,3 +138,9 @@ def test_login_maps_clerk_error_to_401(app, client_factory):
     a = create_app(app.state.cfg, clerk_verifier=Bad())
     c = TestClient(a, headers={"Origin": "http://testserver"})
     assert c.post("/api/login/clerk", json={"token": "x"}).status_code == 401
+
+
+def test_csp_allows_clerk_bot_protection(client):
+    csp = client.get("/health").headers["content-security-policy"]
+    script_src = next(d for d in csp.split(";") if d.strip().startswith("script-src"))
+    assert "https://cdn.protect.clerk.com" in script_src

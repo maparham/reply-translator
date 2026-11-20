@@ -156,7 +156,8 @@ class BodyLimitMiddleware:
 def _csp(fapi: str | None) -> str:
     host = f" https://{fapi}" if fapi else ""
     return (
-        f"default-src 'self'; script-src 'self'{host} https://challenges.cloudflare.com; "
+        # cdn.protect.clerk.com serves Clerk's bot-protection script on production instances.
+        f"default-src 'self'; script-src 'self'{host} https://cdn.protect.clerk.com https://challenges.cloudflare.com; "
         "style-src 'self' 'unsafe-inline'; "
         f"img-src 'self' data:{host} https://img.clerk.com; "
         f"connect-src 'self'{host}; frame-src https://challenges.cloudflare.com; worker-src 'self' blob:; "
