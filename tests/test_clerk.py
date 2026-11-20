@@ -51,6 +51,12 @@ async def test_valid_session_token():
     assert (await verifier().verify(token()))["sub"] == "user_1"
 
 
+async def test_native_app_token_without_azp_accepted():
+    claims = _claims()
+    del claims["azp"]
+    assert (await verifier().verify(token(claims)))["sub"] == "user_1"
+
+
 @pytest.mark.parametrize("bad", [
     pytest.param(lambda: token(key=OTHER_KEY), id="signed-by-another-key"),
     pytest.param(lambda: token(head={"alg": "none", "kid": "k1"}), id="alg-none"),
@@ -60,6 +66,10 @@ async def test_valid_session_token():
     pytest.param(lambda: token(_claims(nbf=int(time.time()) + 600)), id="not-yet-valid"),
     pytest.param(lambda: token(_claims(iss="https://clerk.other.example")), id="other-instance"),
     pytest.param(lambda: token(_claims(azp="https://evil.example")), id="other-site"),
+    pytest.param(lambda: token(_claims(azp=None)), id="azp-null"),
+    pytest.param(lambda: token(_claims(azp="")), id="azp-empty"),
+    pytest.param(lambda: token({k: v for k, v in _claims(exp=int(time.time()) + 3600).items() if k != "azp"}),
+                 id="no-azp-long-lived"),
     pytest.param(lambda: token(_claims(sid=None)), id="no-session-id"),
     pytest.param(lambda: token(_claims(sub="org_1")), id="not-a-user"),
     pytest.param(lambda: token()[:-4] + "AAAA", id="tampered-signature"),

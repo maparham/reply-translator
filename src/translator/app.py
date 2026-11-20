@@ -40,7 +40,7 @@ def _versioned_page(name: str) -> str:
     def tag(m: re.Match) -> str:
         digest = hashlib.sha256((STATIC / m.group(1)).read_bytes()).hexdigest()[:12]
         return f'/static/{m.group(1)}?v={digest}"'
-    return re.sub(r'/static/([\w.]+)"', tag, (STATIC / name).read_text())
+    return re.sub(r'/static/([\w.-]+)"', tag, (STATIC / name).read_text())
 MAX_CHARS = 8000
 
 
@@ -266,11 +266,16 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
     def health():
         return {"ok": True}
 
-    pages = {name: _versioned_page(name) for name in ("index.html", "admin.html")}
+    pages = {name: _versioned_page(name) for name in ("index.html", "admin.html", "app-check.html")}
 
     @app.get("/")
     def index():
         return HTMLResponse(pages["index.html"], headers={"Cache-Control": "no-cache"})
+
+    @app.get("/app-check")
+    def app_check_page():
+        """Turnstile for the Android app: the app loads this in a web view and receives the token over a JS bridge."""
+        return HTMLResponse(pages["app-check.html"], headers={"Cache-Control": "no-cache"})
 
     @app.get("/admin")
     def admin_page():

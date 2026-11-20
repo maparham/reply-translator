@@ -16,6 +16,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 BACKEND_API = "https://api.clerk.com/v1"
+NATIVE_MAX_LIFETIME_S = 120
 LEEWAY_S = 10
 JWKS_TTL_S = 3600
 
@@ -93,9 +94,13 @@ class Verifier:
             raise ClerkError("token not valid yet")
         if claims.get("iss") not in self.issuers:
             raise ClerkError("token from another Clerk instance")
-        # A session token (it has a session id) made in this dashboard, not any other token the instance signs.
-        if not isinstance(claims.get("azp"), str) or claims["azp"].rstrip("/") != self.origin:
-            raise ClerkError("token made for another site")
+        # Browser sessions carry azp (the page origin) and it must be this site. Sessions from the Android app's
+        # native SDK have no origin, so no azp; the signature, issuer and session checks still apply to them.
+        if "azp" in claims:
+            if not isinstance(claims["azp"], str) or claims["azp"].rstrip("/") != self.origin:
+                raise ClerkError("token made for another site")
+        elif not isinstance(claims.get("iat"), (int, float)) or exp - claims["iat"] > NATIVE_MAX_LIFETIME_S:
+            raise ClerkError("long-lived token without azp")  # session tokens live 60 s; templates can be longer
         if not str(claims.get("sub", "")).startswith("user_") or not claims.get("sid"):
             raise ClerkError("not a user's session token")
         return claims

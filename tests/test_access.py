@@ -166,3 +166,11 @@ def test_pages_reference_versioned_assets(client):
         for name, v in refs:
             assert v == hashlib.sha256((STATIC / name).read_bytes()).hexdigest()[:12]
         assert not re.search(r'/static/[\w.]+"', r.text)  # nothing left unversioned
+
+
+def test_app_check_page_for_android(client):
+    r = client.get("/app-check")
+    assert r.status_code == 200
+    assert r.headers["cache-control"] == "no-cache"
+    assert "/static/app-check.js?v=" in r.text
+    assert client.get("/static/app-check.js").status_code == 200

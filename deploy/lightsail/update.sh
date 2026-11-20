@@ -9,7 +9,7 @@ cd "$(dirname "$0")/../.."  # the repo root, wherever this is run from (rsync --
 REMOTE=translator/deploy/lightsail
 
 rsync -az --delete --exclude .git --exclude .venv --exclude '__pycache__' --exclude '.pytest_cache' --exclude '*.db*' --exclude '*.env' \
-  --exclude '*.key' --exclude '*.age' --exclude .deploy.lock --exclude docs --exclude tests --exclude .superpowers --exclude .playwright-mcp ./ "$HOST:translator/"
+  --exclude '*.key' --exclude '*.age' --exclude .deploy.lock --exclude docs --exclude tests --exclude .superpowers --exclude .playwright-mcp --exclude android ./ "$HOST:translator/"
 ssh "$HOST" bash -s <<REMOTE_SCRIPT
 set -euo pipefail
 cd $REMOTE
