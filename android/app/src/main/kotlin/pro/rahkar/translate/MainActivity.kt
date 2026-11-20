@@ -31,6 +31,12 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Color
 import com.clerk.api.Clerk
 import java.time.Instant
 import java.time.ZoneId
@@ -67,14 +73,54 @@ class MainActivity : ComponentActivity() {
   }
 }
 
+/** White fields with a quiet border that turns ink blue when focused, as on the website. */
+@Composable
+fun paperFieldColors() = OutlinedTextFieldDefaults.colors(
+  focusedContainerColor = Palette.Paper, unfocusedContainerColor = Palette.Paper, disabledContainerColor = Palette.Paper,
+  unfocusedBorderColor = Palette.Line, focusedBorderColor = Palette.InkBlue,
+)
+
+/** The website's palette: cool office grey, white paper, blue-black ink; post yellow only on Generate. */
+object Palette {
+  val Bg = Color(0xFFEDF0F3)
+  val Paper = Color(0xFFFFFFFF)
+  val Ink = Color(0xFF1B2535)
+  val InkBlue = Color(0xFF2A4A7B)
+  val Muted = Color(0xFF5E6B7D)
+  val Line = Color(0xFFCCD4DE)
+  val Stamp = Color(0xFFFFCC00)
+  val Carbon = Color(0xFFE1E8F0)
+  val Danger = Color(0xFFB3261E)
+}
+
+// Atkinson Hyperlegible Next (variable): built so letters can't be mistaken, for second-language readers.
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+private fun atkinson(weight: Int) = androidx.compose.ui.text.font.Font(
+  R.font.atkinson_next, FontWeight(weight),
+  variationSettings = androidx.compose.ui.text.font.FontVariation.Settings(androidx.compose.ui.text.font.FontVariation.weight(weight)),
+)
+private val Atkinson = androidx.compose.ui.text.font.FontFamily(atkinson(400), atkinson(600), atkinson(700))
+
 @Composable
 fun AppTheme(content: @Composable () -> Unit) {
-  val dark = androidx.compose.foundation.isSystemInDarkTheme()
-  val ctx = LocalContext.current
-  val scheme = if (android.os.Build.VERSION.SDK_INT >= 31) {
-    if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
-  } else if (dark) darkColorScheme() else lightColorScheme()
-  MaterialTheme(colorScheme = scheme, content = content)
+  val scheme = lightColorScheme(
+    primary = Palette.InkBlue, onPrimary = Color.White, secondary = Palette.InkBlue,
+    background = Palette.Bg, onBackground = Palette.Ink, surface = Palette.Bg, onSurface = Palette.Ink,
+    surfaceVariant = Palette.Carbon, onSurfaceVariant = Palette.Muted, outline = Palette.Line, outlineVariant = Palette.Line,
+    surfaceContainer = Palette.Paper, surfaceContainerHigh = Palette.Paper, surfaceContainerLow = Palette.Paper,
+    surfaceContainerHighest = Palette.Paper, surfaceContainerLowest = Palette.Paper,
+    error = Palette.Danger, primaryContainer = Palette.Carbon, onPrimaryContainer = Palette.Ink,
+  )
+  val base = Typography()
+  fun TextStyle.a() = copy(fontFamily = Atkinson)
+  val type = Typography(
+    displayLarge = base.displayLarge.a(), displayMedium = base.displayMedium.a(), displaySmall = base.displaySmall.a(),
+    headlineLarge = base.headlineLarge.a(), headlineMedium = base.headlineMedium.a(), headlineSmall = base.headlineSmall.a(),
+    titleLarge = base.titleLarge.a().copy(fontWeight = FontWeight.Bold), titleMedium = base.titleMedium.a(), titleSmall = base.titleSmall.a(),
+    bodyLarge = base.bodyLarge.a(), bodyMedium = base.bodyMedium.a(), bodySmall = base.bodySmall.a(),
+    labelLarge = base.labelLarge.a().copy(fontWeight = FontWeight.Bold), labelMedium = base.labelMedium.a(), labelSmall = base.labelSmall.a(),
+  )
+  MaterialTheme(colorScheme = scheme, typography = type, content = content)
 }
 
 private fun copy(ctx: Context, text: String) {
@@ -196,28 +242,47 @@ fun MainScreen(vm: MainViewModel) {
         TurnstileView(vm.baseUrl, vm.checkInteractive, vm::onTurnstileToken, vm::onTurnstileError, vm::onTurnstileInteractive)
       }
 
-      Button(onClick = vm::generate, enabled = vm.usable && vm.busy == null, modifier = Modifier.fillMaxWidth()) {
-        if (vm.busy == "generate") { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)) }
-        Text("Generate")
+      // The one loud thing, as on the website: post yellow with ink text.
+      Button(onClick = vm::generate, enabled = vm.usable && vm.busy == null, modifier = Modifier.fillMaxWidth().height(56.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = Palette.Stamp, contentColor = Palette.Ink,
+          disabledContainerColor = Color(0xFFDFE4EA), disabledContentColor = Color(0xFF8994A3))) {
+        if (vm.busy == "generate") { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Palette.Ink); Spacer(Modifier.width(10.dp)) }
+        Text("Generate", fontSize = 18.sp, fontWeight = FontWeight.Bold)
       }
       vm.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
       vm.result?.let { r ->
-        ElevatedCard(Modifier.fillMaxWidth()) {
-          Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (r.receivedGist.isNotBlank()) Text(buildString { append("They wrote: "); append(r.receivedGist) }, style = MaterialTheme.typography.bodyMedium)
-            SelectionContainer { Text(r.message, style = MaterialTheme.typography.bodyLarge) }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End)) {
-              CopyButton(r.message, icon = true, enabled = vm.busy == null)
-              ActionIcon(R.drawable.ic_whatsapp, "Send with WhatsApp", tint = androidx.compose.ui.graphics.Color(0xFF1E9E52)) {
-                sendToWhatsApp(ctx, r.message)
+        // The sendable letter on a white sheet, with its carbon copy in your language tucked underneath.
+        Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+          if (r.receivedGist.isNotBlank()) Text(
+            androidx.compose.ui.text.buildAnnotatedString {
+              withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold, color = Palette.Ink)) { append("They wrote: ") }
+              append(r.receivedGist)
+            }, style = MaterialTheme.typography.bodyMedium, color = Palette.Muted, modifier = Modifier.padding(start = 4.dp, bottom = 10.dp))
+          Surface(color = Palette.Paper, shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 12.dp, bottomEnd = 12.dp),
+            shadowElevation = 3.dp, modifier = Modifier.fillMaxWidth().zIndex(1f)) {
+            Column {
+              Box(Modifier.fillMaxWidth().height(4.dp).background(Palette.Ink))
+              Column(Modifier.padding(start = 20.dp, end = 12.dp, top = 18.dp, bottom = 10.dp)) {
+                SelectionContainer { Text(r.message, fontSize = 19.sp, lineHeight = 29.sp) }
+                Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End)) {
+                  CopyButton(r.message, icon = true, enabled = vm.busy == null)
+                  ActionIcon(R.drawable.ic_whatsapp, "Send with WhatsApp", tint = Color(0xFF1E9E52)) { sendToWhatsApp(ctx, r.message) }
+                  ActionIcon(R.drawable.ic_share, "Share") { share(ctx, r.message) }
+                }
               }
-              ActionIcon(R.drawable.ic_share, "Share") { share(ctx, r.message) }
             }
-            Text("Means: “${r.backTranslation}”", style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic,
-              color = MaterialTheme.colorScheme.onSurfaceVariant)
-            FlowRowTweaks(cfg.tweaks, vm.busy, vm::tweak)
           }
+          Surface(color = Palette.Carbon, shape = RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+            Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)) {
+              Text("What it says", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Palette.Muted)
+              Text("“${r.backTranslation}”", style = MaterialTheme.typography.bodyMedium, color = Palette.Ink)
+            }
+          }
+          Spacer(Modifier.height(14.dp))
+          FlowRowTweaks(cfg.tweaks, vm.busy, vm::tweak)
         }
       }
 
@@ -256,7 +321,7 @@ private fun InputField(
   }
   OutlinedTextField(
     value, { onChange(it.take(MAX_CHARS)) }, Modifier.fillMaxWidth(), minLines = minLines, maxLines = 12,
-    label = { Text(label) }, placeholder = { Text(placeholder) },
+    label = { Text(label) }, placeholder = { Text(placeholder) }, colors = paperFieldColors(), shape = RoundedCornerShape(12.dp),
     trailingIcon = { Row(verticalAlignment = Alignment.CenterVertically) {
       if (voiceLanguage != null) {
         IconButton(onClick = {
@@ -267,7 +332,7 @@ private fun InputField(
           try { dictate.launch(intent) } catch (_: ActivityNotFoundException) {
             Toast.makeText(ctx, "Voice typing isn't available on this phone", Toast.LENGTH_SHORT).show()
           }
-        }) { Text("🎤", style = MaterialTheme.typography.titleMedium) }
+        }) { Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_mic), contentDescription = "Voice typing", tint = Palette.InkBlue) }
       }
       if (value.isEmpty()) {
         TextButton(onClick = {
@@ -307,7 +372,7 @@ private fun <T> Picker(label: String, options: List<Pair<T, String>>, selected: 
   ExposedDropdownMenuBox(open, { open = it }) {
     OutlinedTextField(
       value = options.firstOrNull { it.first == selected }?.second ?: "", onValueChange = {}, readOnly = true,
-      label = { Text(label) }, singleLine = true,
+      label = { Text(label) }, singleLine = true, colors = paperFieldColors(), shape = RoundedCornerShape(12.dp),
       trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
       modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
     )
@@ -336,8 +401,10 @@ private fun HistorySection(vm: MainViewModel, ctx: Context) {
     Card(Modifier.fillMaxWidth().clickable { vm.open(item) }) {
       Column(Modifier.padding(12.dp)) {
         val lang = languages.firstOrNull { it.code == item.languageCode }?.name ?: item.languageCode
-        Text("${item.styleLabel} · $lang · ${formatTime(item.updatedAt)}", style = MaterialTheme.typography.labelMedium,
-          color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+          Text("${item.styleLabel}, $lang", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+          Text(formatTime(item.updatedAt), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Text(item.output.message.replace(Regex("\\s+"), " "), maxLines = 2, overflow = TextOverflow.Ellipsis)
         Row {
           CopyButton(item.output.message, icon = false)
