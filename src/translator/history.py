@@ -24,15 +24,24 @@ def save(conn: sqlite3.Connection, user_id: str, item_id: str | None, style_labe
         if row is not None:
             if row["user_id"] != user_id:
                 raise PermissionError(item_id)
-            conn.execute("UPDATE history SET output=?, inputs=?, updated_at=? WHERE id=? AND user_id=?",
-                         (json.dumps(output), json.dumps(inputs), ts, item_id, user_id))
+            conn.execute("UPDATE history SET output=?, inputs=?, updated_at=?, style_label=?, language_code=? "
+                         "WHERE id=? AND user_id=?",
+                         (json.dumps(output), json.dumps(inputs), ts, style_label, language_code, item_id, user_id))
             return item_id
     new_id = str(uuid.uuid4())
     conn.execute(
         "INSERT INTO history (id, user_id, created_at, updated_at, style_label, language_code, inputs, output) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         (new_id, user_id, ts, ts, style_label, language_code, json.dumps(inputs), json.dumps(output)))
+    prune(conn, user_id)
     return new_id
+
+
+def prune(conn: sqlite3.Connection, user_id: str) -> None:
+    """Keep only the user's newest MAX_ITEMS items (the most the app ever shows), so history can't grow unbounded."""
+    conn.execute(
+        "DELETE FROM history WHERE user_id=? AND id NOT IN (SELECT id FROM history WHERE user_id=? "
+        "ORDER BY updated_at DESC, created_at DESC LIMIT ?)", (user_id, user_id, MAX_ITEMS))
 
 
 def list_items(conn: sqlite3.Connection, user_id: str, limit: int = MAX_ITEMS) -> list[dict]:
@@ -67,11 +76,11 @@ def _timestamp(value, fallback: str) -> str | None:
         return None
     try:
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return _now(dt)
+    except (ValueError, OverflowError):  # OverflowError: a date at the edge of the calendar, e.g. year 1 at +01:00
         return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return _now(dt)
 
 
 def _valid(item) -> dict | None:
@@ -112,4 +121,5 @@ def import_items(conn: sqlite3.Connection, user_id: str, items: list[dict]) -> i
             (item["id"], user_id, item["created_at"], item["updated_at"], item["style_label"],
              item["language_code"], json.dumps(item["inputs"]), json.dumps(item["output"])))
         imported += cur.rowcount
+    prune(conn, user_id)
     return imported

@@ -165,3 +165,9 @@ def test_every_admin_route_forbids_anon_and_non_admin(admin_routes, anon_client,
         for method, path in admin_routes:
             r = c.request(method, path, json={})
             assert r.status_code == 403, (method, path, r.status_code)
+
+
+def test_price_model_names_are_trimmed(admin_client):
+    r = admin_client.put("/api/admin/settings", json={"prices": {" claude-sonnet-5-5 ": {"in": 3, "out": 15}}})
+    assert r.status_code == 200
+    assert admin_client.get("/api/admin/settings").json()["prices"] == {"claude-sonnet-5-5": {"in": 3, "out": 15}}

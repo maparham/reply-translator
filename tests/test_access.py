@@ -55,7 +55,7 @@ def test_turnstile_unavailable_is_503(app):
     from translator.turnstile import TurnstileUnavailable
     from translator.app import create_app
 
-    async def boom(*a):
+    async def boom(*a, **kw):
         raise TurnstileUnavailable("x")
 
     a = create_app(app.state.cfg, verify_turnstile=boom, clerk_verifier=app.state.clerk)

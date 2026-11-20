@@ -5,6 +5,9 @@ import httpx
 
 SITEVERIFY = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 TIMEOUT_S = 10
+# Cloudflare's documented test secret keys (1x…, 2x…, 3x…) answer hostname "example.com" whatever the site.
+TEST_SECRET_PREFIX = ("1x0000000000000000000000000000000", "2x0000000000000000000000000000000",
+                      "3x0000000000000000000000000000000")
 
 
 class TurnstileUnavailable(Exception):
@@ -15,8 +18,9 @@ def _client() -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=TIMEOUT_S)
 
 
-async def verify(secret: str, token: str, ip: str | None) -> bool:
-    """Whether Cloudflare accepts the widget's token. Only a literal `"success": true` counts."""
+async def verify(secret: str, token: str, ip: str | None, hostname: str | None = None) -> bool:
+    """Whether Cloudflare accepts the widget's token. Only a literal `"success": true` counts, and when `hostname`
+    is given the token must have been solved on that host (not on another site sharing the site key)."""
     form = {"secret": secret, "response": token} | ({"remoteip": ip} if ip else {})
     try:
         async with _client() as c:
@@ -26,4 +30,8 @@ async def verify(secret: str, token: str, ip: str | None) -> bool:
         body = r.json()
     except (httpx.HTTPError, ValueError) as e:
         raise TurnstileUnavailable(str(e)) from e
-    return isinstance(body, dict) and body.get("success") is True
+    if not isinstance(body, dict) or body.get("success") is not True:
+        return False
+    if hostname is None or secret.startswith(TEST_SECRET_PREFIX):
+        return True
+    return body.get("hostname") == hostname

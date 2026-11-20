@@ -299,7 +299,7 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
             raise HTTPException(403, "Verification failed")
         ip = request.headers.get("cf-connecting-ip") or (request.client.host if request.client else None)
         try:
-            ok = await verify_turnstile(secret, token, ip)
+            ok = await verify_turnstile(secret, token, ip, hostname=urlsplit(cfg.app_url).hostname)
         except turnstile.TurnstileUnavailable:
             raise HTTPException(503, "Verification unavailable, try again") from None
         if not ok:
@@ -481,6 +481,8 @@ def create_app(cfg: Config, http: httpx.AsyncClient | None = None, generate=prov
             raise HTTPException(400, "cap_eur must be a number of 0 or more, or null")
         if "prices" in data:
             pr = data["prices"]
+            if isinstance(pr, dict):  # "model " must match the style's (trimmed) model name
+                pr = data["prices"] = {m.strip() if isinstance(m, str) else m: p for m, p in pr.items()}
             if not isinstance(pr, dict) or not all(
                     isinstance(m, str) and isinstance(p, dict) and set(p) == {"in", "out"}
                     and _num(p["in"]) and _num(p["out"]) for m, p in pr.items()):

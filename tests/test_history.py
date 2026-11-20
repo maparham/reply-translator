@@ -124,3 +124,30 @@ def test_max_size_import_batch_fits_body_limit(user_client):
     assert 150_000 < len(raw) <= IMPORT_BATCH_BYTES
     r = user_client.post("/api/history/import", content=raw, headers={"Content-Type": "application/json"})
     assert r.status_code == 200 and r.json() == {"imported": 2}
+
+
+def _items(n, day="2026-11-19"):
+    return [{"id": str(uuid.uuid4()), "created_at": f"{day}T10:00:{i % 60:02d}Z", "style_label": "Official",
+             "language_code": "de-AT", "inputs": {"text": "a"}, "output": {"message": "b"}} for i in range(n)]
+
+
+def test_history_is_capped_per_user(user_client, conn):
+    # Repeated imports with fresh ids must not grow the table without limit (disk is shared with another service).
+    for day in ("2026-11-17", "2026-11-18", "2026-11-19"):
+        assert user_client.post("/api/history/import", json={"items": _items(200, day)}).status_code == 200
+    user_client.post("/api/generate", json=body())
+    assert conn.execute("select count(*) from history").fetchone()[0] == history.MAX_ITEMS
+    newest = user_client.get("/api/history").json()
+    assert newest[0]["inputs"]["text"] == body()["text"]  # the fresh item is kept, the oldest are dropped
+
+
+def test_import_bad_date_skips_item_not_batch(user_client):
+    items = _items(1) + [{**_items(1)[0], "created_at": "0001-01-01T00:30:00+01:00"}]
+    assert user_client.post("/api/history/import", json={"items": items}).json() == {"imported": 1}
+
+
+def test_tweak_updates_style_and_language_label(user_client, fake_gen, conn):
+    hid = user_client.post("/api/generate", json=body()).json()["history_id"]
+    friendly = conn.execute("select id from styles where label='Friendly'").fetchone()[0]
+    user_client.post("/api/tweak", json=body(tweak="shorter", history_id=hid, previous=PREV, style_id=friendly))
+    assert user_client.get("/api/history").json()[0]["style_label"] == "Friendly"

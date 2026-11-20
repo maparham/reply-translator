@@ -90,7 +90,7 @@ def app(cfg, settings, fake_gen, turnstile_state):
     settings.set_secret("turnstile_secret", "ts-secret")
     settings.set_secret("anthropic_api_key", "sk-ant-test")
 
-    async def verify_turnstile(secret, token, ip):
+    async def verify_turnstile(secret, token, ip, hostname=None):
         return turnstile_state["ok"]
 
     return create_app(cfg, generate=fake_gen, verify_turnstile=verify_turnstile, clerk_verifier=FakeClerk())
