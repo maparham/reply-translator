@@ -128,3 +128,9 @@ def test_usage_recorded_when_provider_fails_after_billing(anon_client, fake_gen,
     assert r.status_code == 502
     row = conn.execute("select input_tokens, output_tokens, cost_eur from usage").fetchone()
     assert (row[0], row[1]) == (10, 4096) and row[2] > 0
+
+
+def test_auto_my_language_accepted(user_client, fake_gen):
+    from helpers import body
+    assert user_client.post("/api/generate", json=body(my_language="Auto")).status_code == 200
+    assert "<what_i_want_to_say> in" in fake_gen.calls[-1]["system"]

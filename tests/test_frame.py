@@ -63,8 +63,17 @@ def test_output_to_dict():
 
 
 def test_my_languages():
-    assert len(frame.MY_LANGUAGES) == len(set(frame.MY_LANGUAGES)) == 30
+    assert len(frame.MY_LANGUAGES) == len(set(frame.MY_LANGUAGES)) == 31
+    assert frame.MY_LANGUAGES[0] == frame.AUTO == "Auto"
     assert "English" in frame.MY_LANGUAGES
+
+
+def test_auto_my_language_follows_the_users_text():
+    system, _ = frame.build_prompt("s", "German", frame.AUTO, "ich kann nicht", received="Hallo")
+    assert "in Auto" not in system
+    assert system.count("the language the user wrote <what_i_want_to_say> in") >= 2
+    named, _ = frame.build_prompt("s", "German", "Persian", "x")
+    assert "in Persian" in named
 
 
 def test_tag_breakout_neutralised():

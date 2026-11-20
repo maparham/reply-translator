@@ -122,7 +122,8 @@ function buildForm() {
   fill($("#style"), c.styles.map((s) => [s.id, s.label]), prefs.style);
   fill($("#lang"), c.languages.map((l) => [l.code, l.name]), prefs.lang);
   const guess = LOCALE[(navigator.language || "en").toLowerCase().split("-")[0]] || "English";
-  fill($("#mylang"), c.my_languages.map((n) => [n, n]), prefs.my || guess);
+  fill($("#mylang"), c.my_languages.map((n) => [n, n === "Auto" ? "Auto-detect" : n]),
+    prefs.my || (c.my_languages.includes("Auto") ? "Auto" : guess));
   showStyleDesc();
   const tw = $("#tweaks");
   tw.replaceChildren(...c.tweaks.map((t) => {

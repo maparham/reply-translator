@@ -61,7 +61,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val p = prefs
     styleId = p.getInt("style", -1).takeIf { id -> c.styles.any { it.id == id } } ?: c.styles.firstOrNull()?.id
     lang = p.getString("lang", null)?.takeIf { code -> c.languages.any { it.code == code } } ?: c.languages.firstOrNull()?.code
-    myLang = p.getString("my", null)?.takeIf { it in c.myLanguages } ?: myLanguageFor(Locale.getDefault().toLanguageTag())
+    myLang = p.getString("my", null)?.takeIf { it in c.myLanguages }
+      ?: if ("Auto" in c.myLanguages) "Auto" else myLanguageFor(Locale.getDefault().toLanguageTag())
     refreshHistory()
     offerImport()
     // A Clerk session from an earlier sign-in, but no server session (expired or cleared): sign in again quietly.

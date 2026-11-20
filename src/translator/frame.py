@@ -1,8 +1,10 @@
 """Frame: prompt building, output schema, tweaks and output parsing. Pure, no I/O."""
 from dataclasses import dataclass
 
+AUTO = "Auto"  # "my language" = whatever language the user writes their text in
+
 MY_LANGUAGES = (
-    "English", "Arabic", "Persian", "Dari", "Pashto", "Turkish", "Kurdish (Kurmanji)", "Ukrainian",
+    AUTO, "English", "Arabic", "Persian", "Dari", "Pashto", "Turkish", "Kurdish (Kurmanji)", "Ukrainian",
     "Russian", "Bosnian/Croatian/Serbian", "Albanian", "Romanian", "Bulgarian", "Polish", "Czech",
     "Slovak", "Hungarian", "Greek", "Spanish", "French", "Italian", "Portuguese", "Hindi", "Urdu",
     "Bengali", "Chinese", "Vietnamese", "Tagalog", "Somali", "Tigrinya",
@@ -101,7 +103,8 @@ def build_prompt(
         raise ValueError("tweak and previous must be given together")
     if tweak is not None and tweak not in TWEAKS:
         raise ValueError(f"unknown tweak: {tweak}")
-    system = _SYSTEM.format(target=target_language, my=my_language, style=style_prompt)
+    my = "the language the user wrote <what_i_want_to_say> in" if my_language == AUTO else my_language
+    system = _SYSTEM.format(target=target_language, my=my, style=style_prompt)
     received = (received or "").strip()
     parts = []
     if received:

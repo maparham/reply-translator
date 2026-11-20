@@ -152,13 +152,17 @@ fun MainScreen(vm: MainViewModel) {
       // Optional, so it starts as one line and grows with what is pasted.
       InputField(vm.received, { vm.received = it }, "What they wrote (optional)", "Paste what they wrote to you", minLines = 1)
 
+      // From: the language you write in (Auto = detect it); summaries and the "Means" check come in it. To: the reply.
+      Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f)) {
+          Picker("From", cfg.myLanguages.map { it to if (it == "Auto") "Auto-detect" else it }, vm.myLang) { vm.myLang = it; vm.savePrefs() }
+        }
+        Text("→", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box(Modifier.weight(1f)) { Picker("To", cfg.languages.map { it.code to it.name }, vm.lang) { vm.lang = it; vm.savePrefs() } }
+      }
       Picker("Style", cfg.styles.map { it.id to it.label }, vm.styleId) { vm.styleId = it; vm.savePrefs() }
       cfg.styles.firstOrNull { it.id == vm.styleId }?.description?.takeIf { it.isNotBlank() }?.let {
         Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-      }
-      Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box(Modifier.weight(1f)) { Picker("Language", cfg.languages.map { it.code to it.name }, vm.lang) { vm.lang = it; vm.savePrefs() } }
-        Box(Modifier.weight(1f)) { Picker("My language", cfg.myLanguages.map { it to it }, vm.myLang) { vm.myLang = it; vm.savePrefs() } }
       }
       Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { vm.noSave = !vm.noSave }) {
         Checkbox(vm.noSave, { vm.noSave = it }); Text("Don't save this one")
